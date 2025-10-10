@@ -1,5 +1,6 @@
 using Revise
 using PowerSimulations
+using PowerSystems
 using Dates
 using Logging
 logger = configure_logging(console_level=Logging.Info)
@@ -8,7 +9,7 @@ const PSY = PowerSystems
 using TimeSeries
 using JuMP
 # using HiGHS
-using Xpress
+using Gurobi
 using StorageSystemsSimulations
 using HydroPowerSimulations
 using DataFrames
@@ -23,9 +24,9 @@ include("post_process.jl")
 sim_name = "test_case"
 
 output_dir = "TestRun"
-interval = 1
-horizon = 1
-steps = 1
+interval = 24
+horizon = 24
+steps = 10
 
 # Check if the output directory exists, create if not
 if !ispath(output_dir)
@@ -33,21 +34,21 @@ if !ispath(output_dir)
 end
 
 # Replace the HiGHS optimizer with Gurobi
-# solver = optimizer_with_attributes(
-#     Gurobi.Optimizer,
-#     "TimeLimit" => 10000.0,     # Set the maximum solver time (in seconds)
-#     "OutputFlag" => 1,          # Enable logging to console
-#     "MIPGap" => 1e-2            # Set the relative MIP gap tolerance
-# )
-
 solver = optimizer_with_attributes(
-    Xpress.Optimizer,
-    "MIPRELSTOP" => 1e-3, # Set the relative mip gap tolerance
-    "OUTPUTLOG" => 1, # Enable logging
-    "MAXTIME" => 60, # Set the maximum solver time (in seconds)
-    "THREADS" => 8, # Set the number of solver threads to use
-    # "MAXMEMORYSOFT" => 30000, # Set the maximum amount of memory the solver can use (in MB)
+    Gurobi.Optimizer,
+    "TimeLimit" => 10000.0,     # Set the maximum solver time (in seconds)
+    "OutputFlag" => 1,          # Enable logging to console
+    "MIPGap" => 1e-2            # Set the relative MIP gap tolerance
 )
+
+# solver = optimizer_with_attributes(
+#     Xpress.Optimizer,
+#     "MIPRELSTOP" => 1e-3, # Set the relative mip gap tolerance
+#     "OUTPUTLOG" => 1, # Enable logging
+#     "MAXTIME" => 60, # Set the maximum solver time (in seconds)
+#     "THREADS" => 8, # Set the number of solver threads to use
+#     # "MAXMEMORYSOFT" => 30000, # Set the maximum amount of memory the solver can use (in MB)
+# )
 
 # solver = optimizer_with_attributes(
 #     HiGHS.Optimizer,
@@ -103,7 +104,7 @@ sim = Simulation(
     models=models,
     sequence=sequence,
     simulation_folder=output_dir,
-    initial_time=DateTime("2019-07-18T14:00:00")
+    # initial_time=DateTime("2019-07-18T14:00:00")
 )
 
 # Build and execute the simulation

@@ -13,7 +13,7 @@ base_power = 100
 sys = PSY.System(base_power)
 set_units_base_system!(sys, PSY.UnitSystem.NATURAL_UNITS)
 
-df_bus = CSV.read("config/bus_config.csv", DataFrame)
+df_bus = CSV.read("../config/bus_config.csv", DataFrame)
 
 ##########################
 ##### ADD LOAD ZONE ######
@@ -42,7 +42,7 @@ end
 ##########################
 ##### ADD Transmission ###
 ##########################
-df_branch = CSV.read("config/branch_config.csv", DataFrame)
+df_branch = CSV.read("../config/branch_config.csv", DataFrame)
 br_name_list = Set()
 for (br_id, br) in enumerate(eachrow(df_branch))
     from_id = br.from
@@ -76,7 +76,7 @@ end
 ##### ADD DCline #########
 ##########################
 
-df_hvdc = CSV.read("config/hvdc_config.csv", DataFrame)
+df_hvdc = CSV.read("../config/hvdc_config.csv", DataFrame)
 for (hvdc_id, hvdc) in enumerate(eachrow(df_hvdc))
     name = hvdc.name
     from_id = hvdc.from_bus
@@ -90,8 +90,8 @@ end
 ##########################
 ### ADD InterfaceLimits ##
 ##########################
-df_iflim = CSV.read("config/interfaceflow_limits0718.csv", DataFrame)
-df_ifmap = CSV.read("config/interfaceflow_mapping.csv", DataFrame)
+df_iflim = CSV.read("../config/interfaceflow_limits.csv", DataFrame)
+df_ifmap = CSV.read("../config/interfaceflow_mapping.csv", DataFrame)
 for idx = 1:nrow(df_iflim)
     name = "IF_" * string(idx)
     rating_lb = df_iflim[df_iflim.index.==Int(idx), :rating_lb][1]
@@ -122,8 +122,8 @@ fuel_mapping = Dict(
     "Fuel Oil 6" => ThermalFuels.RESIDUAL_FUEL_OIL,
 )
 #### Add Thermal #########
-df_thermal = CSV.read("config/thermal_config.csv", DataFrame)
-fuel_cost = CSV.read("Data/fuelPriceWeekly_2019.csv", DataFrame)
+df_thermal = CSV.read("../config/thermal_config.csv", DataFrame)
+fuel_cost = CSV.read("../Data/fuelPriceWeekly_2019.csv", DataFrame)
 for (th_id, th) in enumerate(eachrow(df_thermal))
     name = th.Name
     bus = first(get_components(x -> PSY.get_number(x) == th.BusId, ACBus, sys))
@@ -140,8 +140,8 @@ for (th_id, th) in enumerate(eachrow(df_thermal))
 end
 
 ##  Add Nuclear ##############
-df_nuclear = CSV.read("config/nuclear_config.csv", DataFrame)
-nuclear_cf = CSV.read("Data/nuclearGenDaily_2019.csv", DataFrame)
+df_nuclear = CSV.read("../config/nuclear_config.csv", DataFrame)
+nuclear_cf = CSV.read("../Data/nuclearGenDaily_2019.csv", DataFrame)
 for (th_id, th) in enumerate(eachrow(df_nuclear)) # TODO: nuclear maintainance not considered
     name = th.Name
     bus = first(get_components(x -> PSY.get_number(x) == th.BusId, ACBus, sys))
@@ -160,7 +160,7 @@ for (th_id, th) in enumerate(eachrow(df_nuclear)) # TODO: nuclear maintainance n
 end
 
 ##  Add Hydro ##############
-df_hydro = CSV.read("config/hydro_config.csv", DataFrame)
+df_hydro = CSV.read("../config/hydro_config.csv", DataFrame)
 for (hy_id, hy) in enumerate(eachrow(df_hydro))
     name = hy.Name
     bus = first(get_components(x -> PSY.get_number(x) == hy.BusId, ACBus, sys))
@@ -184,8 +184,8 @@ zonename_mapping = Dict(
     "IESO" => "O H",
     "HQ" => "H Q",
 )
-df_agg = CSV.read("config/agggen_config.csv", DataFrame)
-df_hourlylmp = CSV.read("Data/priceHourly_2019.csv", DataFrame)
+df_agg = CSV.read("../config/agggen_config.csv", DataFrame)
+df_hourlylmp = CSV.read("../Data/priceHourly_2019.csv", DataFrame)
 for (th_id, th) in enumerate(eachrow(df_agg))
     name = th.Name
     bus = first(get_components(x -> PSY.get_number(x) == th.BusId, ACBus, sys))
@@ -215,7 +215,7 @@ end
 ##########################
 ### ADD Loads ############
 ##########################
-load_profile = CSV.read("Data/load_profiles.csv", DataFrame)
+load_profile = CSV.read("../Data/load_profiles.csv", DataFrame)
 load_year = 2019
 for busid in names(load_profile)
 
