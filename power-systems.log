@@ -1,0 +1,175 @@
+┌ Info: 2025-10-16T12:21:34.005 [37599:1]: Unit System changed to UnitSystem.SYSTEM_BASE = 0
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/base.jl:552
+┌ Warning: 2025-10-16T12:21:34.024 [37599:1]: Overwriting ThermalStandard existing model
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/core/device_model.jl:116
+┌ Warning: 2025-10-16T12:21:34.025 [37599:1]: Overwriting Transformer2W existing model
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/core/device_model.jl:116
+┌ Warning: 2025-10-16T12:21:34.025 [37599:1]: Overwriting Line existing model
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/core/device_model.jl:116
+┌ Warning: 2025-10-16T12:21:34.025 [37599:1]: Overwriting TwoTerminalHVDCLine existing model
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/core/device_model.jl:116
+┌ Warning: 2025-10-16T12:21:34.026 [37599:1]: Overwriting RenewableNonDispatch existing model
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/core/device_model.jl:116
+┌ Warning: 2025-10-16T12:21:34.026 [37599:1]: Overwriting RenewableDispatch existing model
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/core/device_model.jl:116
+┌ Info: 2025-10-16T12:21:40.363 [37599:1]: 
+│ ────────────────────────────────────────────────────────────────────────────────────────────
+│                                                    Time                    Allocations      
+│                                           ───────────────────────   ────────────────────────
+│             Tot / % measured:                  6.32s / 100.0%           2.00GiB / 100.0%    
+│ 
+│ Section                           ncalls     time    %tot     avg     alloc    %tot      avg
+│ ────────────────────────────────────────────────────────────────────────────────────────────
+│ Build Simulation                       1    6.32s  100.0%   6.32s   2.00GiB  100.0%  2.00GiB
+│   Build Decision Problems              1    6.15s   97.2%   6.15s   1.96GiB   97.7%  1.96GiB
+│     Problem UC                         1    6.15s   97.2%   6.15s   1.96GiB   97.7%  1.96GiB
+│       Services                         2    5.04s   79.8%   2.52s   1.46GiB   72.9%   748MiB
+│       EnergyReservoirStorage           2    358ms    5.7%   179ms   85.0MiB    4.1%  42.5MiB
+│       Numerical Bounds Check           1    168ms    2.7%   168ms    164MiB    8.0%   164MiB
+│       ThermalStandard                  2    147ms    2.3%  73.3ms   62.1MiB    3.0%  31.1MiB
+│       StandardLoad                     2    136ms    2.1%  67.9ms   12.3MiB    0.6%  6.16MiB
+│       Line                             2    130ms    2.1%  65.2ms    106MiB    5.2%  53.0MiB
+│       Transformer2W                    2   65.7ms    1.0%  32.8ms   61.0MiB    3.0%  30.5MiB
+│       RenewableDispatch                2   36.3ms    0.6%  18.1ms   7.23MiB    0.4%  3.62MiB
+│       RenewableNonDispatch             2   23.1ms    0.4%  11.5ms   1.50MiB    0.1%   768KiB
+│       HydroDispatch                    2   15.6ms    0.2%  7.80ms   2.49MiB    0.1%  1.24MiB
+│       Build pre-step                   1   7.75ms    0.1%  7.75ms   67.4KiB    0.0%  67.4KiB
+│       Objective                        1   2.54ms    0.0%  2.54ms   2.06MiB    0.1%  2.06MiB
+│       TwoTerminalHVDCLine              2   1.63ms    0.0%   816μs    477KiB    0.0%   238KiB
+│       PTDFPowerModel                   1   1.05ms    0.0%  1.05ms   1.17MiB    0.1%  1.17MiB
+│       Model Initialization             1   42.2μs    0.0%  42.2μs   10.0KiB    0.0%  10.0KiB
+│       Power Flow Initialization        1   33.8μs    0.0%  33.8μs      896B    0.0%     896B
+│       PowerLoad                        2   30.6μs    0.0%  15.3μs      448B    0.0%     224B
+│       TapTransformer                   2   29.6μs    0.0%  14.8μs      448B    0.0%     224B
+│       InterruptiblePowerLoad           2   17.2μs    0.0%  8.60μs      448B    0.0%     224B
+│   Initialize Simulation State          1   2.33ms    0.0%  2.33ms   1.01MiB    0.0%  1.01MiB
+│   Serializing Simulation Files         1    662μs    0.0%   662μs   16.4KiB    0.0%  16.4KiB
+│   Check Steps                          1   16.4μs    0.0%  16.4μs      176B    0.0%     176B
+│ ────────────────────────────────────────────────────────────────────────────────────────────
+└ @ PowerSimulations /Users/vivienneliu/.julia/packages/PowerSimulations/89s3Q/src/simulation/simulation.jl:736
+┌ Error: 2025-10-16T12:22:17.758 [37599:1]: No mapping defined for generator type=ThermalStandard fuel=NATURAL_GAS primemover=IC ext=nothing
+└ @ PowerAnalytics /Users/vivienneliu/.julia/packages/PowerAnalytics/gm5LA/src/fuel_results.jl:61
+┌ Info: 2025-10-16T12:32:33.414 [37599:1]: Unit System changed to UnitSystem.NATURAL_UNITS = 2
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/base.jl:552
+┌ Warning: 2025-10-16T12:32:33.420 [37599:1]: Assignment to `z` in soft scope is ambiguous because a global variable by the same name exists: `z` will be treated as a new local. Disambiguate by using `local z` to suppress this warning or `global z` to assign to the existing global variable.
+└ @ nothing /Users/vivienneliu/GitHub/nygrid2sienna/src/SystemParsing.jl:27
+┌ Warning: 2025-10-16T12:32:33.486 [37599:1]: Assignment to `r` in soft scope is ambiguous because a global variable by the same name exists: `r` will be treated as a new local. Disambiguate by using `local r` to suppress this warning or `global r` to assign to the existing global variable.
+└ @ nothing /Users/vivienneliu/GitHub/nygrid2sienna/src/SystemParsing.jl:63
+┌ Warning: 2025-10-16T12:32:33.621 [37599:1]: Data for branch Line: 29-37 rating is 2410.49458771451 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.622 [37599:1]: Data for branch Line: 35-73 rating is 2125.552950418336 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.623 [37599:1]: Data for branch Line: 37-38 rating is 957.1172735167146 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.623 [37599:1]: Data for branch Line: 37-39 rating is 434.9608525608958 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.648 [37599:1]: Data for branch Line: 37-43 rating is 1101.2577292729557 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.649 [37599:1]: Data for branch Line: 38-69 rating is 2845.360200737095 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.649 [37599:1]: Data for branch Line: 38-77 rating is 1450.498782837738 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.649 [37599:1]: Data for branch Line: 39-73 rating is 1075.1637797635847 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.649 [37599:1]: Data for branch Line: 39-73~2 rating is 1075.1637797635847 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.650 [37599:1]: Data for branch Line: 40-44 rating is 3132.298206993494 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.650 [37599:1]: Data for branch Line: 41-42 rating is 530.6285570495318 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.651 [37599:1]: Data for branch Line: 41-45 rating is 13858.871488961828 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.651 [37599:1]: Data for branch Line: 43-38 rating is 2755.4551480569935 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.651 [37599:1]: Data for branch Line: 43-50 rating is 1572.9375728212456 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.651 [37599:1]: Data for branch Line: 44-48 rating is 6198.285123966941 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.652 [37599:1]: Data for branch Line: 45-46 rating is 21953.971640736105 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.652 [37599:1]: Data for branch Line: 45-51 rating is 11630.24847472792 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.652 [37599:1]: Data for branch Line: 45-71 rating is 34148.3078376885 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.652 [37599:1]: Data for branch Line: 46-49 rating is 35110.48746873192 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.653 [37599:1]: Data for branch Line: 47-48 rating is 1928.453754869279 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.654 [37599:1]: Data for branch Line: 50-52 rating is 1290.9374501503958 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.654 [37599:1]: Data for branch Line: 51-53 rating is 13557.434175612707 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.654 [37599:1]: Data for branch Line: 51-72 rating is 1388.1329807000411 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.654 [37599:1]: Data for branch Line: 53-65 rating is 5102.878324106659 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.655 [37599:1]: Data for branch Line: 54-55 rating is 759.6939034333524 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.655 [37599:1]: Data for branch Line: 54-56 rating is 748.3714532467797 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.655 [37599:1]: Data for branch Line: 54-62 rating is 4059.232693297821 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.656 [37599:1]: Data for branch Line: 56-58 rating is 884.3272954416157 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.657 [37599:1]: Data for branch Line: 57-59 rating is 4057.1289187624757 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.658 [37599:1]: Data for branch Line: 58-60 rating is 2020.6451755520397 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.658 [37599:1]: Data for branch Line: 58-62 rating is 1058.3570588744585 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.658 [37599:1]: Data for branch Line: 59-61 rating is 9253.338279819234 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.659 [37599:1]: Data for branch Line: 62-63 rating is 4752.737182463399 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.659 [37599:1]: Data for branch Line: 63-67 rating is 5479.7888640345345 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.659 [37599:1]: Data for branch Line: 64-65 rating is 5102.878324106659 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.659 [37599:1]: Data for branch Line: 64-68 rating is 14682.066201708223 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.660 [37599:1]: Data for branch Line: 66-69 rating is 1604.652369757786 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.682 [37599:1]: Data for branch Line: 67-70 rating is 3640.368000018952 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.702 [37599:1]: Data for branch Line: 68-71 rating is 13880.1156757005 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.703 [37599:1]: Data for branch Line: 71-72 rating is 847.5322321742442 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.703 [37599:1]: Data for branch Line: 73-74 rating is 1152.5773733656645 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.704 [37599:1]: Data for branch Line: 74-77 rating is 251.89418605986165 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.704 [37599:1]: Data for branch Line: 74-78 rating is 264.58926471861463 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.705 [37599:1]: Data for branch Line: 76-77 rating is 434.33229608718926 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.705 [37599:1]: Data for branch Line: 78-81 rating is 1613.1532380916597 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.706 [37599:1]: Data for branch Line: 124-125 rating is 4268.474351070967 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.706 [37599:1]: Data for branch Line: 29-35 rating is 3300.9868864030595 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.706 [37599:1]: Data for branch Line: 100-102 rating is 29151.792594440598 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.707 [37599:1]: Data for branch Line: 100-103 rating is 20861.778968205566 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.707 [37599:1]: Data for branch Line: 102-103 rating is 2227.5394008517324 times larger than the base MVA for the system
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/utils/IO/branchdata_checks.jl:102
+┌ Warning: 2025-10-16T12:32:33.718 [37599:1]: Invalid range
+│   valid_info.struct_name = Line
+│   field_name = x
+│   valid_range = Dict{String, Any}("max" => 4, "min" => 0)
+│   valid_info.ist_struct = Line(125-134, true, 99999.0, 0.0, Arc(ACBus(125, LINDON_230, ACBusTypes.PQ = 1, -0.0596204, 1.02196, (min = 0.9, max = 1.1), 230.0, Area(PJM, 0.0, 0.0, 0.0, Dict{String, Any}()), nothing, Dict{String, Any}()), ACBus(134, HOMER CITY_230, ACBusTypes.PV = 2, 0.446392391, 1.03, (min = 0.9, max = 1.1), 230.0, Area(PJM, 0.0, 0.0, 0.0, Dict{String, Any}()), nothing, Dict{String, Any}())), 0.0, 9.423, (from = 0.0, to = 0.0), 99999.0, (min = -1.5707963267948966, max = 1.5707963267948966), (from = 0.0, to = 0.0), Service[], Dict{String, Any}())
+└ @ InfrastructureSystems /Users/vivienneliu/.julia/packages/InfrastructureSystems/LEg3t/src/validation.jl:219
+┌ Warning: 2025-10-16T12:32:35.901 [37599:1]: Invalid range
+│   valid_info.struct_name = ThermalStandard
+│   field_name = active_power_limits
+│   valid_range = Dict{String, Any}("max" => nothing, "min" => 0)
+│   valid_info.ist_struct = ThermalStandard(Hqimport, true, true, ACBus(48, MOSES E_230, ACBusTypes.PV = 2, 0.262021045, 1.05, (min = 0.9, max = 1.1), 230.0, Area(D, 0.0, 0.0, 0.0, Dict{String, Any}()), nothing, Dict{String, Any}()), 0.0, 0.0, 2750.0, (min = -2350.0, max = 2750.0), nothing, (up = 1500.0, down = 1500.0), ThermalGenerationCost(FuelCurve{LinearCurve}(LinearCurve(2.17846153846154, 0.0), UnitSystem.NATURAL_UNITS = 2, 1.0, LinearCurve(0.0, 0.0)), 0.0, 0.0, 0.0), 100.0, (up = 1.0, down = 1.0), false, PrimeMovers.OT = 19, ThermalFuels.OTHER = 14, Service[], 999.0, nothing, Dict{String, Any}())
+└ @ InfrastructureSystems /Users/vivienneliu/.julia/packages/InfrastructureSystems/LEg3t/src/validation.jl:219
+┌ Info: 2025-10-16T12:32:37.833 [37599:1]: Serialized time series data to nys2030_2019_time_series_storage.h5.
+└ @ InfrastructureSystems /Users/vivienneliu/.julia/packages/InfrastructureSystems/LEg3t/src/time_series_storage.jl:104
+┌ Info: 2025-10-16T12:32:37.895 [37599:1]: Serialized System to nys2030_2019.json
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/base.jl:453
+┌ Info: 2025-10-16T12:32:37.896 [37599:1]: Serialized System metadata to nys2030_2019_metadata.json
+└ @ PowerSystems /Users/vivienneliu/.julia/packages/PowerSystems/AHyDB/src/base.jl:478

@@ -1,4 +1,4 @@
-BusId,name,PowerCap,EnergyCap,zone,allocated_cap
+BusId,name,PowerCap,EnergyCap,zone,rating
 55,Storage_55,297,2376,A,163.00242130750607
 56,Storage_56,818,6544,A,448.94269572235675
 57,Storage_57,818,6544,A,448.94269572235675
