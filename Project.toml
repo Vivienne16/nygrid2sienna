@@ -23,4 +23,6 @@ StorageSystemsSimulations = "e2f1a126-19d0-4674-9252-42b2384f8e3c"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TimeSeries = "9e3dc215-6440-5c97-bce1-76c03772f85e"
 XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
-Xpress = "9e70acf3-d6c9-5be6-b5bd-4e2c73e3e054"
+
+[compat]
+HiGHS = "1.19.0"

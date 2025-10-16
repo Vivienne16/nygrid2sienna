@@ -9,8 +9,8 @@ const PSY = PowerSystems
 const PG = PowerGraphics
 using TimeSeries
 using JuMP
-# using HiGHS
-using Xpress
+using HiGHS
+# using Xpress
 using StorageSystemsSimulations
 using HydroPowerSimulations
 using DataFrames
@@ -20,7 +20,7 @@ using CSV
 include("parsing_utils.jl")
 include("post_process.jl")
 # Simulation setup parameters
-sim_name = "clcpa2040test"
+sim_name = "clcpa2030test"
 
 output_dir = "TestRun"
 interval = 24
@@ -40,22 +40,22 @@ end
 #     "MIPGap" => 1e-2            # Set the relative MIP gap tolerance
 # )
 
-solver = optimizer_with_attributes(
-    Xpress.Optimizer,
-    "MIPRELSTOP" => 1e-3, # Set the relative mip gap tolerance
-    "OUTPUTLOG" => 1, # Enable logging
-    "MAXTIME" => 60, # Set the maximum solver time (in seconds)
-    "THREADS" => 8, # Set the number of solver threads to use
-    # "MAXMEMORYSOFT" => 30000, # Set the maximum amount of memory the solver can use (in MB)
-)
-
 # solver = optimizer_with_attributes(
-#     HiGHS.Optimizer,
-#     "time_limit" => 600.0,     # Set the maximum solver time (in seconds)
-#     # "threads" => 12,       
-#     "log_to_console" => true,  # Enable logging
-#     "mip_abs_gap" => 1e-3,      # Set the relative MIP gap tolerance
+#     Xpress.Optimizer,
+#     "MIPRELSTOP" => 1e-3, # Set the relative mip gap tolerance
+#     "OUTPUTLOG" => 1, # Enable logging
+#     "MAXTIME" => 60, # Set the maximum solver time (in seconds)
+#     "THREADS" => 8, # Set the number of solver threads to use
+#     # "MAXMEMORYSOFT" => 30000, # Set the maximum amount of memory the solver can use (in MB)
 # )
+
+solver = optimizer_with_attributes(
+    HiGHS.Optimizer,
+    "time_limit" => 600.0,     # Set the maximum solver time (in seconds)
+    # "threads" => 12,       
+    "log_to_console" => true,  # Enable logging
+    "mip_abs_gap" => 1e-3,      # Set the relative MIP gap tolerance
+)
 # Create a power system
 #sys = System(sys_name) - was defined in SystemParsing.jl
 add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1);

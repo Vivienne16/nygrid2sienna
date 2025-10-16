@@ -255,7 +255,7 @@ end
 ##########################
 ### ADD Wind ############
 ##########################
-df_wind = CSV.read("config/wind_config.csv", DataFrame)
+df_wind = CSV.read("config/wind_config_2030.csv", DataFrame)
 wind_profile_raw = CSV.read("wind_profile/Wind" * string(load_year) * ".csv", DataFrame, header=false)
 new_header = wind_profile_raw.Column1
 transposed_data = permutedims(Matrix(select(wind_profile_raw, Not(:Column1))))
@@ -277,7 +277,7 @@ end
 ##########################
 ### ADD UPV ############
 ##########################
-df_upv = CSV.read("config/upv_config.csv", DataFrame)
+df_upv = CSV.read("config/upv_config_2030.csv", DataFrame)
 upv_profile_raw = CSV.read("upv_profile/solarUPV" * string(load_year) * ".csv", DataFrame, header=false)
 new_header = upv_profile_raw.Column1
 transposed_data = permutedims(Matrix(select(upv_profile_raw, Not(:Column1))))
@@ -295,7 +295,7 @@ end
 ##########################
 ### ADD DPV ############
 ##########################
-df_dpv = CSV.read("config/dpv_config.csv", DataFrame)
+df_dpv = CSV.read("config/dpv_config_2030.csv", DataFrame)
 dpv_profile_raw = CSV.read("dpv_profile/solarDPV" * string(load_year) * ".csv", DataFrame, header=false)
 new_header = dpv_profile_raw.Column1
 transposed_data = permutedims(Matrix(select(dpv_profile_raw, Not(:Column1))))
@@ -314,7 +314,7 @@ end
 ##########################
 ### ADD Storage ############
 ##########################
-df_storage = CSV.read("config/storage_config.csv", DataFrame)
+df_storage = CSV.read("config/storage_config_2030.csv", DataFrame)
 
 for (sto_id, sto) in enumerate(eachrow(df_storage))
     name = sto.name
@@ -328,4 +328,4 @@ for (sto_id, sto) in enumerate(eachrow(df_storage))
 
 end
 
-PSY.to_json(sys, "nys2019.json", force=true)
+PSY.to_json(sys, "nys2030_$load_year.json", force=true)
