@@ -126,8 +126,13 @@ fuel_mapping = Dict(
 )
 #### Add Thermal #########
 df_thermal = CSV.read("config/thermal_config.csv", DataFrame)
+retire_gen_id = CSV.read("config/retired_generators_2025.csv", DataFrame)[!,"PTID"]
 fuel_cost = CSV.read("Data/fuelPriceWeekly_2019.csv", DataFrame)
 for (th_id, th) in enumerate(eachrow(df_thermal))
+    available = true
+    if th.PTID in retire_gen_id
+       available = false
+    end
     name = th.Name
     bus = first(get_components(x -> PSY.get_number(x) == th.BusId, ACBus, sys))
     fuel = fuel_mapping[th.FuelType]
@@ -139,7 +144,7 @@ for (th_id, th) in enumerate(eachrow(df_thermal))
     op_cost = _add_thermal_cost(th.HeatRateLM_1, th.HeatRateLM_0, th.Zone, th.FuelType, pmin, fuel_cost)
     ramp_rate = th.maxRamp10 / 10.0
     pm = pm_mapping[th.UnitType]
-    generator = _add_thermal(sys, bus, name=name, fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)
+    generator = _add_thermal(sys, bus, name=name, available=available, fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)
 end
 
 ##  Add Nuclear ##############

@@ -219,8 +219,8 @@ storage_zone_alloc = combine(groupby(storage_config, :zone), :allocated_cap => s
 
 # Replace original rating columns with the computed allocations
 for (df, df_name) in ((wind_config, "wind_config"), (upv_config, "upv_config"), (dpv_config, "dpv_config"), (storage_config, "storage_config"))
-    if :allocated_cap in names(df)
-        if :rating in names(df)
+    if "allocated_cap" in names(df)
+        if "rating" in names(df)
             # remove the original rating column
             select!(df, Not(:rating))
         end
@@ -245,5 +245,3 @@ try
 catch e
     @error "Failed to write 2030 config CSVs" exception = e
 end
-
-
