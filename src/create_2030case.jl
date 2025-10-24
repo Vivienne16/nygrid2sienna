@@ -217,6 +217,21 @@ end
 storage_zone_alloc = combine(groupby(storage_config, :zone), :allocated_cap => sum => :zone_alloc_sum)
 @info "Storage allocation summary by zone" rows = nrow(storage_zone_alloc)
 
+# Replace original rating columns with the computed allocations
+for (df, df_name) in ((wind_config, "wind_config"), (upv_config, "upv_config"), (dpv_config, "dpv_config"), (storage_config, "storage_config"))
+    if "allocated_cap" in names(df)
+        if "rating" in names(df)
+            # remove the original rating column
+            select!(df, Not(:rating))
+        end
+        # rename allocated_cap -> rating
+        DataFrames.rename!(df, :allocated_cap => :rating)
+        @info "Replaced rating with allocated values for $df_name"
+    else
+        @warn "$df_name missing :allocated_cap; leaving rating unchanged"
+    end
+end
+
 # Save updated config files for 2030
 try
     CSV.write(joinpath(config_dir, "wind_config_2030.csv"), wind_config)
@@ -230,5 +245,3 @@ try
 catch e
     @error "Failed to write 2030 config CSVs" exception = e
 end
-
-

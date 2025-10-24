@@ -95,6 +95,7 @@ function _add_thermal(
     sys,
     bus::PSY.Bus;
     name,
+    available,
     fuel::PSY.ThermalFuels,
     pmin,
     pmax,
@@ -104,7 +105,7 @@ function _add_thermal(
 )
     device = PSY.ThermalStandard(
         name=name,
-        available=true,
+        available=available,
         status=true,
         bus=bus,
         active_power=0.0,

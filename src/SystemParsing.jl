@@ -37,7 +37,10 @@ sys = PSY.System(base_power)
 set_units_base_system!(sys, PSY.UnitSystem.NATURAL_UNITS)
 
 df_bus = CSV.read("config/bus_config.csv", DataFrame)
-
+base_load_scale = 1.16 # 1.5% annual increase from 2020 load level to 2030
+res_load_scale = 0.09 # 9% increase in residential load for 2030
+com_load_scale = 0.02 # 2% increase in commercial load for 2030
+ev_load_scale = 0.25 #14% for 2030, which is about 1M
 ##########################
 ##### ADD LOAD ZONE ######
 ##########################
@@ -145,8 +148,13 @@ fuel_mapping = Dict(
 )
 #### Add Thermal #########
 df_thermal = CSV.read("config/thermal_config.csv", DataFrame)
+retire_gen_id = CSV.read("config/retired_generators_2025.csv", DataFrame)[!,"PTID"]
 fuel_cost = CSV.read("Data/fuelPriceWeekly_2019.csv", DataFrame)
 for (th_id, th) in enumerate(eachrow(df_thermal))
+    available = true
+    if th.PTID in retire_gen_id
+       available = false
+    end
     name = th.Name
     bus = first(get_components(x -> PSY.get_number(x) == th.BusId, ACBus, sys))
     fuel = fuel_mapping[th.FuelType]
@@ -158,7 +166,7 @@ for (th_id, th) in enumerate(eachrow(df_thermal))
     op_cost = _add_thermal_cost(th.HeatRateLM_1, th.HeatRateLM_0, th.Zone, th.FuelType, pmin, fuel_cost)
     ramp_rate = th.maxRamp10 / 10.0
     pm = pm_mapping[th.UnitType]
-    generator = _add_thermal(sys, bus, name=name, fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)
+    generator = _add_thermal(sys, bus, name=name, available=available, fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)
 end
 
 ##  Add Nuclear ##############
@@ -189,7 +197,7 @@ for (hy_id, hy) in enumerate(eachrow(df_hydro))
     pmin = hy.Pmin
     pmax = hy.Pmax
     op_cost = HydroGenerationCost(;
-        variable=FuelCurve(; value_curve=LinearCurve(3.0), fuel_cost=1.0),
+        variable=FuelCurve(; value_curve=LinearCurve(0.0), fuel_cost=1.0),
         fixed=0.0,
     )
     ramp_rate = hy.maxRamp10 / 10.0
@@ -243,7 +251,7 @@ baseline_load_profile = CSV.read("load_profile/Baseload/Baseload_" * string(load
 for busid in names(baseline_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "Baseline_load_" * busid
-    load_ts = baseline_load_profile[!, busid]
+    load_ts = baseline_load_profile[!, busid]*base_load_scale
     _build_load(sys, bus, name, load_ts, load_year)
 end
 
@@ -252,7 +260,7 @@ comstock_load_profile = CSV.read("load_profile/ComLoad/ComLoad_" * string(load_y
 for busid in names(comstock_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "Comstock_load_" * busid
-    load_ts = comstock_load_profile[!, busid]
+    load_ts = comstock_load_profile[!, busid]*com_load_scale
     _build_load(sys, bus, name, load_ts, load_year)
 end
 
@@ -261,7 +269,7 @@ resstock_load_profile = CSV.read("load_profile/ResLoad/ResLoad_" * string(load_y
 for busid in names(resstock_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "Resstock_load_" * busid
-    load_ts = resstock_load_profile[!, busid]
+    load_ts = resstock_load_profile[!, busid]*res_load_scale
     _build_load(sys, bus, name, load_ts, load_year)
 end
 
@@ -270,7 +278,7 @@ ev_load_profile = CSV.read("load_profile/EVload/EVload.csv", DataFrame)
 for busid in names(ev_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "EV_load_" * busid
-    load_ts = ev_load_profile[!, busid]
+    load_ts = ev_load_profile[!, busid]*ev_load_scale
     _build_load(sys, bus, name, load_ts, load_year)
 end
 
