@@ -37,3 +37,8 @@ Manifest.toml
 .html
 
 TestRun/*
+
+nys2030_*
+2030Baseline_Test/*
+*.out
+*.err
