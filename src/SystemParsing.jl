@@ -8,7 +8,7 @@ const PSY = PowerSystems
 const IS = InfrastructureSystems
 
 include("parsing_utils.jl")
-
+mer = false  # whether to include mer load
 base_power = 100
 load_year = 2019
 sys = PSY.System(base_power)
@@ -217,7 +217,7 @@ for (th_id, th) in enumerate(eachrow(df_agg))
     )
     ramp_rate = th.maxRampAgc
     pm = PrimeMovers.OT
-    generator = _add_thermal(sys, bus, name=name, fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)
+    generator = _add_thermal(sys, bus, name=name, available = true,fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)
 end
 
 ##########################
@@ -229,8 +229,13 @@ baseline_load_profile = CSV.read("load_profile/Baseload/Baseload_" * string(load
 for busid in names(baseline_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "Baseline_load_" * busid
-    load_ts = baseline_load_profile[!, busid]*base_load_scale
-    _build_load(sys, bus, name, load_ts, load_year)
+    if PSY.get_area(bus).name == "C" && mer == true 
+        load_ts = baseline_load_profile[!, busid]*base_load_scale .+ 1/11
+        _build_load(sys, bus, name, load_ts, load_year)
+    else
+        load_ts = baseline_load_profile[!, busid]*base_load_scale
+        _build_load(sys, bus, name, load_ts, load_year)
+    end
 end
 
 ###### Comstock Load ##########
@@ -330,10 +335,13 @@ for (sto_id, sto) in enumerate(eachrow(df_storage))
     power_capacity = sto.PowerCap
     energy_capacity = sto.EnergyCap
     efficiency = 0.95
-    op_cost = StorageCost(charge_variable_cost=CostCurve(LinearCurve(0.0)))
+    op_cost = StorageCost(charge_variable_cost=CostCurve(LinearCurve(1.0)))
 
     storage = _add_storage(sys, bus, name, power_capacity, energy_capacity, efficiency, op_cost)
 
 end
-
-PSY.to_json(sys, "nys2030_$load_year.json", force=true)
+if mer == true
+   PSY.to_json(sys, "mer_nys2030_$load_year.json", force=true)
+else
+   PSY.to_json(sys, "nys2030_$load_year.json", force=true)
+end

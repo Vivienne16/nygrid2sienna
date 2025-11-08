@@ -366,8 +366,8 @@ function _add_storage(sys, bus::PSY.Bus, name, power_capacity, energy_capacity, 
         prime_mover_type=PSY.PrimeMovers.BA,    # Set the prime mover to Battery
         storage_technology_type=StorageTech.LIB,
         storage_capacity=energy_capacity / 100.0,
-        storage_level_limits=(min=0.1, max=1.0),
-        initial_storage_capacity_level=0.5,  # Set initial energy level
+        storage_level_limits=(min=0.0, max=1.0),
+        initial_storage_capacity_level=0.0,  # Set initial energy level
         rating=power_capacity / 100.0,                     # Set the rating
         active_power=power_capacity / 100.0,               # Set active power equal to rating
         input_active_power_limits=(min=0.0, max=power_capacity / 100.0),  # Set input active power limits
