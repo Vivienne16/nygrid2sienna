@@ -19,8 +19,6 @@ NG-CT:
   - {gentype: Any, primemover: CT, fuel: NATURAL_GAS}
 NG-CC:
   - {gentype: Any, primemover: CC, fuel: NATURAL_GAS}
-NG-IC:
-  - {gentype: Any, primemover: IC, fuel: NATURAL_GAS}
 NG-Steam:
   - {gentype: Any, primemover: ST, fuel: NATURAL_GAS}
 Other Gas:

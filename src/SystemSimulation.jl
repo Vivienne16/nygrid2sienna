@@ -3,29 +3,63 @@ using PowerSimulations
 using Dates
 using Logging
 using PowerGraphics
-logger = configure_logging(console_level=Logging.Info)
+using PowerSystems
 const PSI = PowerSimulations
 const PSY = PowerSystems
 const PG = PowerGraphics
 using TimeSeries
 using JuMP
-using HiGHS
+# using HiGHS
 # using Xpress
+using Gurobi
 using StorageSystemsSimulations
 using HydroPowerSimulations
 using DataFrames
 using CSV
 
+function get_env()
+    while true
+        try
+            return Gurobi.Env()
+        catch e
+            retrytime = rand()*60
+            println("No Gurobi licenses available, retrying in $retrytime seconds")
+            sleep(retrytime)
+        end
+    end
+end
+const GRB_ENV = get_env()
 # Include the parsing utilities script
 include("parsing_utils.jl")
 include("post_process.jl")
 # Simulation setup parameters
-sim_name = "clcpa2030test"
+function _get_load_year()
+  if length(ARGS) >= 1
+    try
+      return parse(Int, ARGS[1])
+    catch
+      error("Invalid load_year provided as ARGS[1]: $(ARGS[1])")
+    end
+  elseif haskey(ENV, "LOAD_YEAR")
+    try
+      return parse(Int, ENV["LOAD_YEAR"])
+    catch
+      error("Invalid LOAD_YEAR environment variable: $(ENV["LOAD_YEAR"])")
+    end
+  else
+    return 2019
+  end
+end
 
-output_dir = "TestRun"
+load_year = _get_load_year()
+println("Using load_year = $load_year")
+
+sim_name = "clcpa$(load_year)_test"
+sys_name = "nys2030_$(load_year).json"
+output_dir = "2030Baseline_Test"
 interval = 24
-horizon = 24
-steps = 1
+horizon = 48
+steps = 364
 
 # Check if the output directory exists, create if not
 if !ispath(output_dir)
@@ -33,12 +67,13 @@ if !ispath(output_dir)
 end
 
 # Replace the HiGHS optimizer with Gurobi
-# solver = optimizer_with_attributes(
-#     Gurobi.Optimizer,
-#     "TimeLimit" => 10000.0,     # Set the maximum solver time (in seconds)
-#     "OutputFlag" => 1,          # Enable logging to console
-#     "MIPGap" => 1e-2            # Set the relative MIP gap tolerance
-# )
+solver = optimizer_with_attributes(
+    () -> Gurobi.Optimizer(GRB_ENV),
+    "TimeLimit" => 10000.0,     # Set the maximum solver time (in seconds)
+    "OutputFlag" => 1,          # Enable logging to console
+    "Threads" => 8,             # Set the number of solver threads to use
+    "MIPGap" => 1e-3            # Set the relative MIP gap tolerance
+)
 
 # solver = optimizer_with_attributes(
 #     Xpress.Optimizer,
@@ -49,22 +84,22 @@ end
 #     # "MAXMEMORYSOFT" => 30000, # Set the maximum amount of memory the solver can use (in MB)
 # )
 
-solver = optimizer_with_attributes(
-    HiGHS.Optimizer,
-    "time_limit" => 600.0,     # Set the maximum solver time (in seconds)
-    # "threads" => 12,       
-    "log_to_console" => true,  # Enable logging
-    "mip_abs_gap" => 1e-3,      # Set the relative MIP gap tolerance
-)
+# solver = optimizer_with_attributes(
+#     HiGHS.Optimizer,
+#     "time_limit" => 600.0,     # Set the maximum solver time (in seconds)
+#     # "threads" => 12,       
+#     "log_to_console" => true,  # Enable logging
+#     "mip_abs_gap" => 1e-3,      # Set the relative MIP gap tolerance
+# )
 # Create a power system
-#sys = System(sys_name) - was defined in SystemParsing.jl
+sys = System(sys_name)
 add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1);
 # Transform time series data for the specified horizon and interval
 PSY.transform_single_time_series!(sys, Hour(horizon), Hour(interval))
 
 # Create a unit commitment template using DC power flow model
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.AreaBalancePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
-template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.PTDFPowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
+template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.PTDFPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.CopperPlatePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
 # Set device models for different components
 set_device_model!(template_uc, ThermalStandard, ThermalBasicDispatch)
@@ -113,7 +148,7 @@ build!(sim, serialize=true)
 execute!(sim, enable_progress_bar=true)
 
 model = get_simulation_model(sim, :UC)
-JuMP.write_to_file(model.internal.container.JuMPmodel, "model.lp")
+# JuMP.write_to_file(model.internal.container.JuMPmodel, "model.lp")
 results = SimulationResults(sim; ignore_status=true);
 results_uc = get_decision_problem_results(results, "UC");
 set_system!(results_uc, sys);
@@ -127,8 +162,8 @@ p = PG.plot_fuel(
     display=false,
     title="all_plants_case_dispatch", # saved plot will saved with the title as its name
     slacks=true,
-    # generator_mapping_file="generator_mapping.yaml",
-    # palette=PG.load_palette("color.yaml"),
+    generator_mapping_file="src/generator_mapping.yaml",
+    palette=PG.load_palette("src/color.yaml"),
     save=".",
     format="html"
 );

@@ -67,9 +67,6 @@ Near-EGS:
 NG-CC:
   RGB: "rgba(158, 114, 197, 1)"
   order: 9
-NG-IC:
-  RGB: "rgba(158, 114, 197, 1)"
-  order: 9
 Non-powered dams (NPD):
   RGB: "rgba(81, 143, 153, 1)"
   order: 16

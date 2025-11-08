@@ -10,7 +10,29 @@ const IS = InfrastructureSystems
 include("parsing_utils.jl")
 mer = false  # whether to include mer load
 base_power = 100
-load_year = 2019
+
+# Determine load_year from CLI argument ARGS[1] or environment variable LOAD_YEAR; default to 2019
+function _get_load_year()
+    if length(ARGS) >= 1
+        try
+            return parse(Int, ARGS[1])
+        catch
+            error("Invalid load_year provided as ARGS[1]: $(ARGS[1])")
+        end
+    elseif haskey(ENV, "LOAD_YEAR")
+        try
+            return parse(Int, ENV["LOAD_YEAR"])
+        catch
+            error("Invalid LOAD_YEAR environment variable: $(ENV["LOAD_YEAR"])")
+        end
+    else
+        return 2019
+    end
+end
+
+load_year = _get_load_year()
+println("Using load_year = $load_year")
+
 sys = PSY.System(base_power)
 set_units_base_system!(sys, PSY.UnitSystem.NATURAL_UNITS)
 
@@ -239,7 +261,7 @@ for busid in names(baseline_load_profile)
 end
 
 ###### Comstock Load ##########
-comstock_load_profile = CSV.read("load_profile/Comload/Comload_" * string(load_year) * ".csv", DataFrame)
+comstock_load_profile = CSV.read("load_profile/ComLoad/ComLoad_" * string(load_year) * ".csv", DataFrame)
 for busid in names(comstock_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "Comstock_load_" * busid
@@ -248,7 +270,7 @@ for busid in names(comstock_load_profile)
 end
 
 ###### Resstock Load ##########
-resstock_load_profile = CSV.read("load_profile/Resload/Resload_" * string(load_year) * ".csv", DataFrame)
+resstock_load_profile = CSV.read("load_profile/ResLoad/ResLoad_" * string(load_year) * ".csv", DataFrame)
 for busid in names(resstock_load_profile)
     bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
     name = "Resstock_load_" * busid
