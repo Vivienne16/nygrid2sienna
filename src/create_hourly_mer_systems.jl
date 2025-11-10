@@ -1,15 +1,16 @@
 """
-Create 24 systems with MER load addition for specific hours of each day.
+Create 25 systems: 24 with MER load addition for specific hours + 1 baseline system.
 
-This script generates 24 power system models, where each system adds MER load
-for a specific hour (1-24) of every day in the year. For example:
-- System 1: Adds MER load at hour 1 of every day
-- System 2: Adds MER load at hour 2 of every day
-- ...
-- System 24: Adds MER load at hour 24 of every day
+This script generates 25 power system models:
+- Systems 0-23: Add MER load for a specific hour (0-23) of every day in the year
+  * System 0: Adds MER load at hour 0 of every day (midnight)
+  * System 1: Adds MER load at hour 1 of every day
+  * ...
+  * System 23: Adds MER load at hour 23 of every day (11 PM)
+- System 24: Baseline system with no MER modifications (reference case)
 
-The MER load addition is applied only to buses in zone "C" and only for the 
-specified hour of each day.
+The MER load addition is applied only to buses in zone "C" (bus 65) and only for the 
+specified hour of each day. Hour 24 represents the baseline case without any MER additions.
 """
 
 using CSV
@@ -30,7 +31,7 @@ base_load_scale = 1.16  # 1.5% annual increase from 2020 load level to 2030
 res_load_scale = 0.09   # 9% increase in residential load for 2030
 com_load_scale = 0.02   # 2% increase in commercial load for 2030
 ev_load_scale = 0.25    # 14% for 2030, which is about 1M
-mer_load_magnitude = 1/11  # MER load magnitude per hour
+mer_load_magnitude = 1.0  # MER load magnitude per hour
 
 function create_hourly_mer_load_profile(baseline_profile, target_hour, load_year)
     """
@@ -38,7 +39,7 @@ function create_hourly_mer_load_profile(baseline_profile, target_hour, load_year
     
     Args:
         baseline_profile: DataFrame with baseline load profiles
-        target_hour: Hour of day (1-24) to add MER load
+        target_hour: Hour of day (0-23) to add MER load
         load_year: Year for the load profile
     
     Returns:
@@ -101,13 +102,19 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
     Create a power system with MER load added at specific hour of each day.
     
     Args:
-        target_hour: Hour of day (1-24) to add MER load
+        target_hour: Hour of day (0-23) to add MER load, or 24 for baseline (no MER)
         output_filename: Optional custom filename for output JSON
     """
     
-    println("\n" * "="^60)
-    println("CREATING SYSTEM WITH MER LOAD AT HOUR $target_hour")
-    println("="^60)
+    if target_hour == 24
+        println("\n" * "="^60)
+        println("CREATING BASELINE SYSTEM (NO MER MODIFICATIONS)")
+        println("="^60)
+    else
+        println("\n" * "="^60)
+        println("CREATING SYSTEM WITH MER LOAD AT HOUR $target_hour")
+        println("="^60)
+    end
     
     # Create new system
     sys = PSY.System(base_power)
@@ -288,6 +295,12 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
         "IESO" => "O H",
         "HQ" => "H Q",
     )
+    average_price = Dict(
+        "NEISO" => 28.44,
+        "PJM" => 24.0,
+        "IESO" => 17.9,
+        "HQ" => 18.35,
+        )
     df_agg = CSV.read("config/agggen_config.csv", DataFrame)
     df_hourlylmp = CSV.read("Data/priceHourly_2019.csv", DataFrame)
     for (th_id, th) in enumerate(eachrow(df_agg))
@@ -300,8 +313,9 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
         else
             pmax = th.Pmax
         end
-        filtered_df = filter(row -> row.ZoneName == zonename_mapping[th.Zone], df_hourlylmp)
-        zonal_price = filtered_df[1, "LBMP"]
+        # filtered_df = filter(row -> row.ZoneName == zonename_mapping[th.Zone], df_hourlylmp)
+        # zonal_price = filtered_df[1, "LBMP"]
+        zonal_price = average_price[th.Zone]
         op_cost = ThermalGenerationCost(;
             variable=FuelCurve(; value_curve=LinearCurve(zonal_price), fuel_cost=1.0),
             fixed=0.0,
@@ -320,8 +334,15 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
     ###### Baseline Load with Hourly MER Addition ##########
     baseline_load_profile = CSV.read("load_profile/Baseload/Baseload_" * string(load_year) * ".csv", DataFrame)
     
-    # Create modified load profiles with hourly MER addition
-    modified_load_profiles = create_hourly_mer_load_profile(baseline_load_profile, target_hour, load_year)
+    # Create modified load profiles with hourly MER addition (only if not baseline)
+    if target_hour == 24
+        # Hour 24 = baseline system with no MER modifications
+        modified_load_profiles = nothing
+        println("Creating baseline system - no MER load additions")
+    else
+        # Hours 0-23 = add MER load at specific hour
+        modified_load_profiles = create_hourly_mer_load_profile(baseline_load_profile, target_hour, load_year)
+    end
     
     for busid in names(baseline_load_profile)
         if busid == "1"  # Skip index column if present
@@ -331,10 +352,12 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
         bus = first(get_components(x -> PSY.get_number(x) == parse(Float64, busid), ACBus, sys))
         name = "Baseline_load_" * busid
         
-        # Use modified load profile for zone C, regular profile for others
-        if PSY.get_area(bus).name == "C"
+        # Use modified load profile for zone C (bus 65), regular profile for others
+        if busid == "65" && target_hour != 24
+            # Add MER load for hours 0-23
             load_ts = modified_load_profiles[busid]
         else
+            # Use baseline load for hour 24 or non-zone C buses
             load_ts = baseline_load_profile[!, busid] * base_load_scale
         end
         
@@ -453,10 +476,14 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
     
     # Save system to JSON file
     if output_filename === nothing
-        output_filename = "mer_hourly_$(target_hour)_nys2030_$(load_year).json"
+        if target_hour == 24
+            output_filename = "baseline_nys2030_$(load_year).json"
+        else
+            output_filename = "mer_hourly_$(target_hour)_nys2030_$(load_year).json"
+        end
     end
-    
-    PSY.to_json(sys, output_filename, force=true)
+
+    PSY.to_json(sys, joinpath("MERsystems", output_filename), force=true)
     println("System saved to: $output_filename")
     
     return sys, output_filename
@@ -464,21 +491,27 @@ end
 
 function create_all_hourly_mer_systems()
     """
-    Create all 24 systems with MER load addition for each hour of the day.
+    Create all 25 systems: 24 with MER load addition for each hour (0-23) plus baseline (24).
     """
     
     println("\n" * "="^80)
-    println("CREATING 24 HOURLY MER SYSTEMS")
+    println("CREATING 25 SYSTEMS: 24 HOURLY MER + 1 BASELINE")
     println("="^80)
-    println("This will create 24 power system files, each with MER load added")
-    println("at a specific hour of every day in the year.")
+    println("This will create 25 power system files:")
+    println("- Hours 0-23: MER load added at specific hour of every day")
+    println("- Hour 24: Baseline system with no MER modifications")
     println("="^80)
     
     created_systems = []
     
-    for hour in 1:24
+    for hour in 0:24  # Now includes hour 24 for baseline
         try
-            println("\n--- Creating system for hour $hour ---")
+            if hour == 24
+                println("\n--- Creating Baseline System (Hour 24) ---")
+            else
+                println("\n--- Creating MER system for hour $hour ---")
+            end
+            
             sys, filename = create_system_with_hourly_mer(hour)
             
             # Verify system was created successfully
@@ -486,7 +519,11 @@ function create_all_hourly_mer_systems()
             num_loads = length(get_components(StandardLoad, sys))
             num_generators = length(get_components(Generator, sys))
             
-            println("✓ System $hour created successfully:")
+            if hour == 24
+                println("✓ Baseline system created successfully:")
+            else
+                println("✓ MER system $hour created successfully:")
+            end
             println("  - Buses: $num_buses")
             println("  - Loads: $num_loads") 
             println("  - Generators: $num_generators")
@@ -495,7 +532,11 @@ function create_all_hourly_mer_systems()
             push!(created_systems, (hour=hour, filename=filename, buses=num_buses, loads=num_loads, generators=num_generators))
             
         catch e
-            println("✗ Error creating system for hour $hour:")
+            if hour == 24
+                println("✗ Error creating baseline system:")
+            else
+                println("✗ Error creating system for hour $hour:")
+            end
             println("  Error: $e")
             @warn "Failed to create system for hour $hour" exception=e
         end
@@ -504,20 +545,27 @@ function create_all_hourly_mer_systems()
     println("\n" * "="^80)
     println("SUMMARY OF CREATED SYSTEMS")
     println("="^80)
-    println("Successfully created $(length(created_systems)) out of 24 systems:")
+    println("Successfully created $(length(created_systems)) out of 25 systems:")
     println()
-    println("Hour | Filename | Buses | Loads | Generators")
-    println("-"^60)
+    println("Hour | Type      | Filename | Buses | Loads | Generators")
+    println("-"^70)
     
     for sys_info in created_systems
-        println("$(lpad(sys_info.hour, 4)) | $(sys_info.filename) | $(lpad(sys_info.buses, 5)) | $(lpad(sys_info.loads, 5)) | $(lpad(sys_info.generators, 10))")
+        if sys_info.hour == 24
+            sys_type = "Baseline"
+        else
+            sys_type = "MER"
+        end
+        println("$(lpad(sys_info.hour, 4)) | $(rpad(sys_type, 9)) | $(sys_info.filename) | $(lpad(sys_info.buses, 5)) | $(lpad(sys_info.loads, 5)) | $(lpad(sys_info.generators, 10))")
     end
     
-    if length(created_systems) == 24
-        println("\n🎉 All 24 hourly MER systems created successfully!")
+    if length(created_systems) == 25
+        println("\n🎉 All 25 systems created successfully!")
+        println("   - 24 hourly MER systems (hours 0-23)")
+        println("   - 1 baseline system (hour 24)")
     else
         println("\n⚠️  Only $(length(created_systems)) systems were created successfully.")
-        failed_hours = setdiff(1:24, [s.hour for s in created_systems])
+        failed_hours = setdiff(0:24, [s.hour for s in created_systems])
         println("Failed hours: $(join(failed_hours, ", "))")
     end
     
