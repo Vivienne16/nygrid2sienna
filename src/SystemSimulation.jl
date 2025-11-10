@@ -53,13 +53,18 @@ end
 
 load_year = _get_load_year()
 println("Using load_year = $load_year")
-
-sim_name = "clcpa$(load_year)_test"
-sys_name = "nys2030_$(load_year).json"
-output_dir = "2030Baseline_Test"
-interval = 24
-horizon = 48
-steps = 364
+mer = true
+if mer
+  sim_name = "mer_clcpa$(load_year)_test"
+  sys_name = "mer_nys2030_$(load_year).json"
+else
+  sim_name = "nys2030_$(load_year)_test"
+  sys_name = "nys2030_$(load_year).json"
+end
+output_dir = "2030_MER_Test"
+interval = 1
+horizon = 1
+steps = 8760
 
 # Check if the output directory exists, create if not
 if !ispath(output_dir)
@@ -102,7 +107,7 @@ PSY.transform_single_time_series!(sys, Hour(horizon), Hour(interval))
 template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.PTDFPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.CopperPlatePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
 # Set device models for different components
-set_device_model!(template_uc, ThermalStandard, ThermalBasicDispatch)
+set_device_model!(template_uc, ThermalStandard, ThermalDispatchNoMin)
 set_device_model!(template_uc, StandardLoad, StaticPowerLoad)
 set_device_model!(template_uc, EnergyReservoirStorage, StorageDispatchWithReserves)
 set_device_model!(template_uc, Transformer2W, StaticBranch)
