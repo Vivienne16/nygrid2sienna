@@ -8,9 +8,8 @@ const PSY = PowerSystems
 const IS = InfrastructureSystems
 
 include("parsing_utils.jl")
-
+mer = false  # whether to include mer load
 base_power = 100
-mer = true
 
 # Determine load_year from CLI argument ARGS[1] or environment variable LOAD_YEAR; default to 2019
 function _get_load_year()
@@ -38,7 +37,7 @@ sys = PSY.System(base_power)
 set_units_base_system!(sys, PSY.UnitSystem.NATURAL_UNITS)
 
 df_bus = CSV.read("config/bus_config.csv", DataFrame)
-base_load_scale = 1.16 # 1.5% annual increase from 2020 load level to 2030
+base_load_scale = 1.0 # 1.5% annual increase from 2020 load level to 2030
 res_load_scale = 0.09 # 9% increase in residential load for 2030
 com_load_scale = 0.02 # 2% increase in commercial load for 2030
 ev_load_scale = 0.25 #14% for 2030, which is about 1M
@@ -215,6 +214,12 @@ zonename_mapping = Dict(
     "IESO" => "O H",
     "HQ" => "H Q",
 )
+average_price = Dict(
+    "NEISO" => 28.44,
+    "PJM" => 24.0,
+    "IESO" => 17.9,
+    "HQ" => 18.35,
+)
 df_agg = CSV.read("config/agggen_config.csv", DataFrame)
 df_hourlylmp = CSV.read("Data/priceHourly_2019.csv", DataFrame)
 for (th_id, th) in enumerate(eachrow(df_agg))
@@ -230,8 +235,9 @@ for (th_id, th) in enumerate(eachrow(df_agg))
     # if pmin == 0.0
     #     pmin = 0.2 * pmax ## TODO: find better way to estimate pmin
     # end
-    filtered_df = filter(row -> row.ZoneName == zonename_mapping[th.Zone], df_hourlylmp)
-    zonal_price = filtered_df[1, "LBMP"] ###TODO: this needs to be a time-series
+    # filtered_df = filter(row -> row.ZoneName == zonename_mapping[th.Zone], df_hourlylmp)
+    # zonal_price = filtered_df[1, "LBMP"] ###TODO: this needs to be a time-series
+    zonal_price = average_price[th.Zone]
     op_cost = ThermalGenerationCost(;
         variable=FuelCurve(; value_curve=LinearCurve(zonal_price), fuel_cost=1.0),
         fixed=0.0,
@@ -358,7 +364,7 @@ for (sto_id, sto) in enumerate(eachrow(df_storage))
     power_capacity = sto.PowerCap
     energy_capacity = sto.EnergyCap
     efficiency = 0.95
-    op_cost = StorageCost(charge_variable_cost=CostCurve(LinearCurve(0.0)))
+    op_cost = StorageCost(charge_variable_cost=CostCurve(LinearCurve(1.0)))
 
     storage = _add_storage(sys, bus, name, power_capacity, energy_capacity, efficiency, op_cost)
 
@@ -367,5 +373,5 @@ end
 if mer == true
    PSY.to_json(sys, "mer_nys2030_$load_year.json", force=true)
 else
-   PSY.to_json(sys, "nys2030_$load_year.json", force=true)
+   PSY.to_json(sys, "baseline_systems/nys2030_$load_year.json", force=true)
 end

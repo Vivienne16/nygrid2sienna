@@ -37,8 +37,15 @@ Manifest.toml
 .html
 
 TestRun/*
-
 nys2030_*
 2030Baseline_Test/*
 *.out
 *.err
+hourly_mer_simulation_results/*
+hourly_mer_results/*
+HourlySimulations/*
+comparison_results/*
+hourly_comparison_results/*
+mer_results/*
+storage_intensity_results/*
+psy_systems/*

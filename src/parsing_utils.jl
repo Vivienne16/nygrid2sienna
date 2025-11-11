@@ -2,7 +2,15 @@ using PowerSystems
 const PSY = PowerSystems
 
 #Function to generate a time array with hourly timestamps for a given year
-get_timestamp(year) = DateTime("$(year)-01-01T00:00:00"):Hour(1):DateTime("$(year)-12-31T23:55:00")
+function get_timestamp(year)
+    timestamps = DateTime("$(year)-01-01T00:00:00"):Hour(1):DateTime("$(year)-12-31T23:00:00")
+    # If leap year, remove Dec 31 (last 24 hours)
+    if Dates.isleapyear(year)
+        timestamps = timestamps[1:end-24]
+    end
+    # Filter out Feb 29 if it's a leap year
+    return timestamps
+end
 
 
 function _build_bus(sys, number, name, bustype, angle, magnitude, voltage_limits, base_voltage, area)
@@ -366,8 +374,8 @@ function _add_storage(sys, bus::PSY.Bus, name, power_capacity, energy_capacity, 
         prime_mover_type=PSY.PrimeMovers.BA,    # Set the prime mover to Battery
         storage_technology_type=StorageTech.LIB,
         storage_capacity=energy_capacity / 100.0,
-        storage_level_limits=(min=0.1, max=1.0),
-        initial_storage_capacity_level=0.5,  # Set initial energy level
+        storage_level_limits=(min=0.0, max=1.0),
+        initial_storage_capacity_level=0.0,  # Set initial energy level
         rating=power_capacity / 100.0,                     # Set the rating
         active_power=power_capacity / 100.0,               # Set active power equal to rating
         input_active_power_limits=(min=0.0, max=power_capacity / 100.0),  # Set input active power limits

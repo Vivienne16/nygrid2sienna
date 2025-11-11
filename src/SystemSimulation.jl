@@ -53,7 +53,7 @@ end
 
 load_year = _get_load_year()
 println("Using load_year = $load_year")
-mer = true
+mer = false
 if mer
   sim_name = "mer_clcpa$(load_year)_test"
   sys_name = "mer_nys2030_$(load_year).json"
@@ -62,9 +62,9 @@ else
   sys_name = "nys2030_$(load_year).json"
 end
 output_dir = "2030_MER_Test"
-interval = 1
-horizon = 1
-steps = 8760
+interval = 24
+horizon = 24
+steps = 365
 
 # Check if the output directory exists, create if not
 if !ispath(output_dir)
@@ -97,14 +97,14 @@ solver = optimizer_with_attributes(
 #     "mip_abs_gap" => 1e-3,      # Set the relative MIP gap tolerance
 # )
 # Create a power system
-sys = System(sys_name)
+sys = System(joinpath("baseline_systems", sys_name))
 add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1);
 # Transform time series data for the specified horizon and interval
 PSY.transform_single_time_series!(sys, Hour(horizon), Hour(interval))
 
 # Create a unit commitment template using DC power flow model
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.AreaBalancePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
-template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.PTDFPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
+template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.DCPPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.CopperPlatePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
 # Set device models for different components
 set_device_model!(template_uc, ThermalStandard, ThermalDispatchNoMin)
@@ -160,15 +160,15 @@ set_system!(results_uc, sys);
 variables = PSI.read_realized_variables(results_uc)
 export_results_csv(results_uc, variables, "ED", joinpath(results.path, "results"))
 # PSI.compute_conflict!(model.internal.container)
-plotlyjs()
-p = PG.plot_fuel(
-    results_uc;
-    curtailment=true,
-    display=false,
-    title="all_plants_case_dispatch", # saved plot will saved with the title as its name
-    slacks=true,
-    generator_mapping_file="src/generator_mapping.yaml",
-    palette=PG.load_palette("src/color.yaml"),
-    save=".",
-    format="html"
-);
+# plotlyjs()
+# p = PG.plot_fuel(
+#     results_uc;
+#     curtailment=true,
+#     display=false,
+#     title="all_plants_case_dispatch", # saved plot will saved with the title as its name
+#     slacks=true,
+#     generator_mapping_file="src/generator_mapping.yaml",
+#     palette=PG.load_palette("src/color.yaml"),
+#     save=".",
+#     format="html"
+# );
