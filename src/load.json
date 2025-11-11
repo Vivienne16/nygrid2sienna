@@ -1,0 +1,6 @@
+{
+    "mapper": {
+        "ActivePowerTimeSeriesParameter__StandardLoad": "Load",
+        "ActivePowerInVariable__HydroPumpedStorage": "PSH Charging"
+    }
+}

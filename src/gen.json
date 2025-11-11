@@ -1,0 +1,14 @@
+{
+    "mapper": {
+        "ActivePowerVariable__RenewableDispatch__Curtailment": "Renewable Curtailment"
+    },
+    "vars": [
+        "ActivePowerVariable__RenewableDispatch",
+        "ActivePowerOutVariable__EnergyReservoirStorage",
+        "ActivePowerOutVariable__HydroPumpedStorage",
+        "ActivePowerVariable__ThermalStandard",
+        "ActivePowerVariable__HydroDispatch",
+        "ActivePowerTimeSeriesParameter__RenewableNonDispatch"
+    ]
+
+}
