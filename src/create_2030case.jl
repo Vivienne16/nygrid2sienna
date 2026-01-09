@@ -44,7 +44,7 @@ else
     append_zone!(storage_config, "storage_config")
 end
 
-Re_cap = CSV.read("Data/NetA_2030_ReCap.csv", DataFrame)
+Re_cap = CSV.read("Data/AdAct_2030_ReCap.csv", DataFrame)
 
 # Convert Re_cap to long form: Tech, zone, cap
 cols = filter(n -> n != "Tech", names(Re_cap))

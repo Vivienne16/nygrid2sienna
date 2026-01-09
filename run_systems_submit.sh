@@ -5,7 +5,7 @@ SCRIPT="run_systems.sh"
 
 cd "$PROJECT_DIR" || exit 1
 module load gurobi
-for year in {1998..1998}; do
+for year in {1998..2019}; do
   echo "Submitting job for year $year"
   sbatch --export=LOAD_YEAR=$year $SCRIPT
   sleep 0.1

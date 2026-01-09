@@ -288,7 +288,7 @@ function _add_wind(sys, bus::PSY.Bus, name, rating, op_cost, re_ts, load_year)
         wind,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), re_ts / maximum(re_ts)),
+            TimeArray(get_timestamp(load_year), re_ts),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )
@@ -319,7 +319,7 @@ function _add_upv(sys, bus::PSY.Bus, name, rating, op_cost, re_ts, load_year)
         solar,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), re_ts / rating),
+            TimeArray(get_timestamp(load_year), re_ts),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )
@@ -348,7 +348,7 @@ function _add_dpv(sys, bus::PSY.Bus, name, rating, op_cost, re_ts, load_year)
         solar,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), re_ts / rating),
+            TimeArray(get_timestamp(load_year), re_ts),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )

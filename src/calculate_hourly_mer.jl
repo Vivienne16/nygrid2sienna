@@ -18,22 +18,22 @@ where:
 
 # Emission factors by fuel type (kg CO2/MWh)
 const EMISSION_FACTORS = Dict(
-    "Natural Gas" => 820.0,     # kg CO2/MWh for combined cycle
-    "Coal" => 2200.0,           # kg CO2/MWh for coal
-    "Oil" => 1800.0,            # kg CO2/MWh for oil
-    "Fuel Oil 2" => 1850.0,     # kg CO2/MWh for fuel oil 2 (distillate)
-    "Fuel Oil 6" => 1900.0,     # kg CO2/MWh for fuel oil 6 (residual)
-    "Kerosene" => 1900.0,       # kg CO2/MWh for kerosene
-    "Diesel" => 1900.0,         # kg CO2/MWh for diesel
+    # "Natural Gas" => 820.0,     # kg CO2/MWh for combined cycle
+    # "Coal" => 2200.0,           # kg CO2/MWh for coal
+    # "Oil" => 1800.0,            # kg CO2/MWh for oil
+    # "Fuel Oil 2" => 1850.0,     # kg CO2/MWh for fuel oil 2 (distillate)
+    # "Fuel Oil 6" => 1900.0,     # kg CO2/MWh for fuel oil 6 (residual)
+    # "Kerosene" => 1900.0,       # kg CO2/MWh for kerosene
+    # "Diesel" => 1900.0,         # kg CO2/MWh for diesel
     "Nuclear" => 0.0,           # kg CO2/MWh for nuclear
     "Hydro" => 0.0,             # kg CO2/MWh for hydro
     "Wind" => 0.0,              # kg CO2/MWh for wind
     "Solar" => 0.0,             # kg CO2/MWh for solar
-    "AggGen" => 850.0           # kg CO2/MWh for aggregated generators (Natural Gas + 30)
+    "AggGen" => 0.06           # kg CO2/MWh for aggregated generators (Natural Gas + 30)
 )
 
 # Storage discharge emission intensity (kg CO2/MWh)
-STORAGE_DISCHARGE_EMISSION_FACTOR = 620.0
+STORAGE_DISCHARGE_EMISSION_FACTOR = 0.0
 
 # Configuration
 hourly_comparison_base = "hourly_comparison_results"
@@ -51,7 +51,7 @@ function load_thermal_config()
     df = CSV.read(config_path, DataFrame)
     
     # Add emission factors based on fuel type
-    df.emission_factor = map(fuel -> get(EMISSION_FACTORS, fuel, 0.0), df.FuelType)
+    df.emission_factor = map(row -> row.emissionFactor * row.HeatRateLM_1, eachrow(df))
     
     return df
 end
