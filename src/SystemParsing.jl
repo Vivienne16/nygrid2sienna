@@ -39,7 +39,7 @@ set_units_base_system!(sys, PSY.UnitSystem.NATURAL_UNITS)
 df_bus = CSV.read("config/bus_config.csv", DataFrame)
 base_load_scale = 1.0 # 1.5% annual increase from 2020 load level to 2030
 res_load_scale = 0.09 # 9% increase in residential load for 2030
-com_load_scale = 0.02 # 2% increase in commercial load for 2030
+com_load_scale = 0.04 # 4% increase in commercial load for 2030
 ev_load_scale = 0.25 #14% for 2030, which is about 1M
 ##########################
 ##### ADD LOAD ZONE ######
@@ -298,7 +298,7 @@ end
 ### ADD Wind ############
 ##########################
 df_wind = CSV.read("config/wind_config_2030.csv", DataFrame)
-wind_profile_raw = CSV.read("wind_profile/Wind" * string(load_year) * ".csv", DataFrame, header=false)
+wind_profile_raw = CSV.read("wind_profile/Wind" * string(load_year) * "_cf.csv", DataFrame, header=false)
 new_header = wind_profile_raw.Column1
 transposed_data = permutedims(Matrix(select(wind_profile_raw, Not(:Column1))))
 wind_profile = DataFrame(transposed_data, Symbol.(string.(new_header)), makeunique=true)
@@ -320,7 +320,7 @@ end
 ### ADD UPV ############
 ##########################
 df_upv = CSV.read("config/upv_config_2030.csv", DataFrame)
-upv_profile_raw = CSV.read("upv_profile/solarUPV" * string(load_year) * ".csv", DataFrame, header=false)
+upv_profile_raw = CSV.read("upv_profile/solarUPV" * string(load_year) * "_cf.csv", DataFrame, header=false)
 new_header = upv_profile_raw.Column1
 transposed_data = permutedims(Matrix(select(upv_profile_raw, Not(:Column1))))
 upv_profile = DataFrame(transposed_data, Symbol.(string.(new_header)), makeunique=true)
@@ -338,7 +338,7 @@ end
 ### ADD DPV ############
 ##########################
 df_dpv = CSV.read("config/dpv_config_2030.csv", DataFrame)
-dpv_profile_raw = CSV.read("dpv_profile/solarDPV" * string(load_year) * ".csv", DataFrame, header=false)
+dpv_profile_raw = CSV.read("dpv_profile/solarDPV" * string(load_year) * "_cf.csv", DataFrame, header=false)
 new_header = dpv_profile_raw.Column1
 transposed_data = permutedims(Matrix(select(dpv_profile_raw, Not(:Column1))))
 dpv_profile = DataFrame(transposed_data, Symbol.(string.(new_header)), makeunique=true)

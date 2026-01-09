@@ -4,6 +4,7 @@ using Dates
 using Logging
 using PowerGraphics
 using PowerSystems
+# logger = configure_logging(console_level=Logging.Info)
 const PSI = PowerSimulations
 const PSY = PowerSystems
 const PG = PowerGraphics
@@ -16,19 +17,7 @@ using StorageSystemsSimulations
 using HydroPowerSimulations
 using DataFrames
 using CSV
-
-function get_env()
-    while true
-        try
-            return Gurobi.Env()
-        catch e
-            retrytime = rand()*60
-            println("No Gurobi licenses available, retrying in $retrytime seconds")
-            sleep(retrytime)
-        end
-    end
-end
-const GRB_ENV = get_env()
+const SSS = StorageSystemsSimulations
 # Include the parsing utilities script
 include("parsing_utils.jl")
 include("post_process.jl")
@@ -89,13 +78,13 @@ solver = optimizer_with_attributes(
 #     # "MAXMEMORYSOFT" => 30000, # Set the maximum amount of memory the solver can use (in MB)
 # )
 
-# solver = optimizer_with_attributes(
-#     HiGHS.Optimizer,
-#     "time_limit" => 600.0,     # Set the maximum solver time (in seconds)
-#     # "threads" => 12,       
-#     "log_to_console" => true,  # Enable logging
-#     "mip_abs_gap" => 1e-3,      # Set the relative MIP gap tolerance
-# )
+solver = optimizer_with_attributes(
+    HiGHS.Optimizer,
+    "time_limit" => 600.0,     # Set the maximum solver time (in seconds)
+    # "threads" => 12,       
+    "log_to_console" => true,  # Enable logging
+    "mip_abs_gap" => 5e-3,      # Set the relative MIP gap tolerance
+)
 # Create a power system
 sys = System(joinpath("baseline_systems", sys_name))
 add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1);
@@ -109,15 +98,18 @@ template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.PTDFPowerM
 # Set device models for different components
 set_device_model!(template_uc, ThermalStandard, ThermalDispatchNoMin)
 set_device_model!(template_uc, StandardLoad, StaticPowerLoad)
-set_device_model!(template_uc, EnergyReservoirStorage, StorageDispatchWithReserves)
-set_device_model!(template_uc, Transformer2W, StaticBranch)
-set_device_model!(template_uc, Line, StaticBranch)
+set_device_model!(template_uc, DeviceModel(EnergyReservoirStorage, StorageDispatchWithReserves))
+# set_device_model!(template_uc, DeviceModel(EnergyReservoirStorage, StorageDispatchWithReserves;duals=[SSS.StateofChargeLimitsConstraint,PSI.InputActivePowerVariableLimitsConstraint,PSI.OutputActivePowerVariableLimitsConstraint,EnergyBalanceConstraint]))
+# set_device_model!(template_uc, DeviceModel(Transformer2W, StaticBranch;use_slacks=true,duals=[NetworkFlowConstraint]))
+# set_device_model!(template_uc, DeviceModel(Line, StaticBranch;use_slacks=true,duals=[NetworkFlowConstraint]))
+set_device_model!(template_uc, DeviceModel(Transformer2W, StaticBranch;use_slacks=true))
+set_device_model!(template_uc, DeviceModel(Line, StaticBranch;use_slacks=true))
 set_device_model!(template_uc, TwoTerminalHVDCLine, HVDCTwoTerminalLossless)
 set_device_model!(template_uc, RenewableNonDispatch, FixedOutput)
 set_device_model!(template_uc, RenewableDispatch, RenewableFullDispatch)
 set_device_model!(template_uc, HydroDispatch, HydroDispatchRunOfRiver)
-set_service_model!(template_uc, TransmissionInterface, ConstantMaxInterfaceFlow)
-
+# set_service_model!(template_uc, ServiceModel(TransmissionInterface, ConstantMaxInterfaceFlow; duals=[PSI.InterfaceFlowLimit],use_slacks=true))
+set_service_model!(template_uc, ServiceModel(TransmissionInterface, ConstantMaxInterfaceFlow))
 # Create simulation models
 models = SimulationModels(
     decision_models=[
@@ -158,6 +150,7 @@ results = SimulationResults(sim; ignore_status=true);
 results_uc = get_decision_problem_results(results, "UC");
 set_system!(results_uc, sys);
 variables = PSI.read_realized_variables(results_uc)
+duals = PSI.read_realized_duals(results_uc)
 export_results_csv(results_uc, variables, "ED", joinpath(results.path, "results"))
 # PSI.compute_conflict!(model.internal.container)
 # plotlyjs()

@@ -88,9 +88,7 @@ def dispatch_plot(df, gen_mapping, color_mapping, load_mapper,fuel_mapper, folde
     plt.close()
     print(f"Saved plot for {folder}")
 
-# results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/2030_MER_Test_PTDF"
-# results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations/baseline"
-results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_test"
+results_dir = "/Users/vivienneliu/GitHub/nygrid2sienna/MERHourlySimulations_UC_noreserve_newre"
 folders = [f for f in os.listdir(results_dir) if os.path.isdir(os.path.join(results_dir, f))]
 
 load_mapper = json.load(open("src/load.json","r"))

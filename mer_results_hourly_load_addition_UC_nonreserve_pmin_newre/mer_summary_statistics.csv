@@ -1,0 +1,13 @@
+metric,value
+mean_mer,0.5351629001987233
+median_mer,0.5702164606899829
+std_mer,0.12226934866795072
+min_mer,0.10830094136768453
+max_mer,2.557658005356
+q25_mer,0.41956777312233995
+q75_mer,0.6163838933167968
+total_hours,8760.0
+successful_hours,8760.0
+total_emissions_tonnes_co2,4.688027005740816
+thermal_emissions_tonnes_co2,4.688027005740816
+storage_emissions_tonnes_co2,0.0
