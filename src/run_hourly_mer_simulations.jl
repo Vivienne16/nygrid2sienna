@@ -60,7 +60,7 @@ include("src/post_process.jl")
 
 # Simulation configuration
 load_year = 2019
-base_output_dir = "MERHourlySimulations"
+base_output_dir = "MERHourlySimulations_PTDF"
 interval = 24
 horizon = 24
 steps = 365
@@ -139,15 +139,15 @@ function setup_simulation_template(sys)
     
     # Create unit commitment template
     template_uc = PSI.template_unit_commitment(; 
-        network=NetworkModel(PSI.DCPPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys))
+        network=NetworkModel(PSI.PTDFPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys))
     )
     
     # Set device models
     set_device_model!(template_uc, DeviceModel(ThermalStandard, ThermalDispatchNoMin))
     set_device_model!(template_uc, StandardLoad, StaticPowerLoad)
     set_device_model!(template_uc, DeviceModel(EnergyReservoirStorage, StorageDispatchWithReserves))
-    set_device_model!(template_uc, DeviceModel(Transformer2W, StaticBranch; use_slacks=true))
-    set_device_model!(template_uc, DeviceModel(Line, StaticBranch; use_slacks=true))
+    set_device_model!(template_uc, DeviceModel(Transformer2W, StaticBranch))
+    set_device_model!(template_uc, DeviceModel(Line, StaticBranch))
     set_device_model!(template_uc, TwoTerminalHVDCLine, HVDCTwoTerminalLossless)
     set_device_model!(template_uc, RenewableNonDispatch, FixedOutput)
     set_device_model!(template_uc, RenewableDispatch, RenewableFullDispatch)

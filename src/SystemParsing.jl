@@ -7,7 +7,7 @@ using PowerSystems
 const PSY = PowerSystems
 const IS = InfrastructureSystems
 
-include("parsing_utils.jl")
+include("src/parsing_utils.jl")
 mer = false  # whether to include mer load
 base_power = 100
 
@@ -163,7 +163,7 @@ for (th_id, th) in enumerate(eachrow(df_thermal))
     # if pmin == 0.0
     #     pmin = 0.2 * pmax ## TODO: find better way to estimate pmin
     # end
-    op_cost = _add_thermal_cost(th.HeatRateLM_1, th.HeatRateLM_0, th.Zone, th.FuelType, pmin, fuel_cost)
+    op_cost = _add_thermal_cost(round(th.HeatRateLM_1, digits=2), 0.0, th.Zone, th.FuelType, pmin, fuel_cost)
     ramp_rate = th.maxRamp10 / 10.0
     pm = pm_mapping[th.UnitType]
     generator = _add_thermal(sys, bus, name=name, available=available, fuel=fuel, cost=op_cost, pmin=pmin, pmax=pmax, ramp_rate=ramp_rate, pm=pm)

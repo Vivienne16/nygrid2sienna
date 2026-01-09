@@ -10,7 +10,7 @@ and calculates the accumulated carbon intensity based on charging/discharging pa
 """
 
 # Configuration
-RESULTS_DIR = "/Users/vivienneliu/GitHub/nygrid2sienna/TestRun/mer_clcpa2030test/results"
+RESULTS_DIR = "MERHourlySimulations_UC/baseline_simulation/results"
 
 function find_storage_files(directory)
     """Find all storage-related power files in the directory"""
@@ -32,7 +32,7 @@ end
 
 function load_thermal_emission_factors()
     """Load emission factors from config files for all generator types"""
-    config_dir = joinpath(dirname(RESULTS_DIR), "..", "..", "config")
+    config_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/config"
     
     emission_factors = Dict{String, Float64}()
     
@@ -42,20 +42,9 @@ function load_thermal_emission_factors()
         df = CSV.read(thermal_config_path, DataFrame)
         for row in eachrow(df)
             # Map fuel type to emission factor
-            fuel_type = row.FuelType
-            if fuel_type == "Natural Gas"
-                emission_factors[row.Name] = 820.0
-            elseif fuel_type == "Coal" 
-                emission_factors[row.Name] = 2200.0
-            elseif fuel_type == "Oil"
-                emission_factors[row.Name] = 1800.0
-            elseif contains(fuel_type, "Fuel Oil")
-                emission_factors[row.Name] = 1850.0
-            elseif fuel_type in ["Nuclear", "Hydro", "Wind", "Solar"]
-                emission_factors[row.Name] = 0.0
-            else
-                emission_factors[row.Name] = 820.0  # Default to natural gas
-            end
+            
+            emission_factors[row.Name] = row.emissionFactor * row.HeatRateLM_1  # Default to natural gas
+            
         end
     end
     
@@ -129,17 +118,21 @@ function calculate_grid_intensity(thermal_df, hydro_df, renewable_df, emission_f
             end
             
             gen_name = extract_generator_name(col)
+            
+            # Skip generators with "AggGen" in the name
+            if contains(gen_name, "AggGen")
+                continue
+            end
+            
             power = row[col]
             
             if !ismissing(power) && abs(power) > 1e-6 && power > 0
-                # Check if generator is in emission factors, if not and has "AggGen" assume natural gas
-                emission_factor = if haskey(emission_factors, gen_name)
-                    emission_factors[gen_name]
-                elseif contains(gen_name, "AggGen")
-                    820.0  # Natural gas intensity for aggregated generators
-                else
-                    820.0  # Default to natural gas
+                # Check if generator is in emission factors
+                if !haskey(emission_factors, gen_name)
+                    error("Emission factor not found for generator: $gen_name")
                 end
+                
+                emission_factor = emission_factors[gen_name]
                 
                 total_power += power
                 total_emissions += power * emission_factor
@@ -179,7 +172,7 @@ function calculate_grid_intensity(thermal_df, hydro_df, renewable_df, emission_f
         end
     end
     
-    return total_power > 1e-6 ? total_emissions / total_power : 820.0
+    return total_emissions / total_power
 end
 
 function calculate_storage_intensity_hourly(storage_in_df, storage_out_df, thermal_df, hydro_df, renewable_df, emission_factors)
@@ -328,9 +321,9 @@ function calculate_storage_intensity_hourly(storage_in_df, storage_out_df, therm
                         emission_factor = if haskey(emission_factors, gen_name)
                             emission_factors[gen_name]
                         elseif contains(gen_name, "AggGen")
-                            820.0  # Natural gas intensity for aggregated generators
+                            0.5  # Natural gas intensity for aggregated generators
                         else
-                            820.0  # Default to natural gas
+                            0.5  # Default to natural gas
                         end
                         
                         total_power += power
@@ -376,7 +369,7 @@ function calculate_storage_intensity_hourly(storage_in_df, storage_out_df, therm
         end
         
         # Calculate average grid intensity for the hour
-        hour_grid_intensity = hour_total_power > 1e-6 ? hour_total_emissions / hour_total_power : 820.0
+        hour_grid_intensity =  hour_total_emissions / hour_total_power
         
         # Process each storage unit for this hour
         for unit in storage_units
@@ -548,3 +541,5 @@ end
 results, final_tracking = calculate_storage_intensity_hourly(storage_in_df, storage_out_df, thermal_df, hydro_df, renewable_df, emission_factors)
 
 summary_stats = save_results(results)
+
+CSV.write("/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_UC/baseline_simulation/storage_intensity_hourly_UC.csv", results)

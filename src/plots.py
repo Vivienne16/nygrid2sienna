@@ -88,7 +88,9 @@ def dispatch_plot(df, gen_mapping, color_mapping, load_mapper,fuel_mapper, folde
     plt.close()
     print(f"Saved plot for {folder}")
 
-results_dir = "/Users/vivienneliu/GitHub/nygrid2sienna/yearly_simulation_test"
+# results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/2030_MER_Test_PTDF"
+# results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations/baseline"
+results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_test"
 folders = [f for f in os.listdir(results_dir) if os.path.isdir(os.path.join(results_dir, f))]
 
 load_mapper = json.load(open("src/load.json","r"))
@@ -96,6 +98,7 @@ gen_mapping = json.load(open("src/gen.json","r"))
 color_mapping = load_color("src/color.yaml")
 with open("src/aggregation.json","r") as f:
         fuel_mapper = json.load(f)
+results_list = []
 for folder in folders:
     output_dir = os.path.join(results_dir, folder, "results")
     input_dir = os.path.join(output_dir,f"{folder}.feather")
@@ -103,5 +106,23 @@ for folder in folders:
     dispatch_plot(df, gen_mapping, color_mapping, load_mapper, fuel_mapper, folder, output_dir)
     df_gen_mix = get_gen_mix(df,gen_mapping,fuel_mapper)
     df_load_mix = df.query("metric == 'Load'").pivot(index="DateTime",columns="variable",values="value")
-    print(folder,total_renewable_percentage(df_gen_mix, df_load_mix))
-    # print(folder,renewable_percentage(df_gen_mix, df_load_mix))
+    renewable_pct = total_renewable_percentage(df_gen_mix, df_load_mix)
+    
+    # Extract number between underscores from folder name
+    match = re.search(r'_(\d+)_', folder)
+    folder_num = int(match.group(1)) if match else None
+    
+    results_list.append({"folder_number": folder_num, "folder": folder, "renewable_percentage": renewable_pct})
+    print(folder, folder_num, renewable_pct)
+
+results_df = pd.DataFrame(results_list)
+
+# Sort by folder_number
+results_df = results_df.sort_values(by='folder_number').reset_index(drop=True)
+
+print("\nSummary of Renewable Percentages:")
+print(results_df)
+
+# Save to CSV
+results_df.to_csv(os.path.join(results_dir, "renewable_percentages.csv"), index=False)
+print(f"\nResults saved to {os.path.join(results_dir, 'renewable_percentages.csv')}")

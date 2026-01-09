@@ -4,9 +4,9 @@ using Statistics
 using Glob
 
 # Configuration
-base_dir1 = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations/baseline/baseline_simulation/results"  # Base case
-hourly_simulations_base = "MERHourlySimulations"  # Base directory for hourly results
-output_base_dir = "hourly_comparison_results"
+base_dir1 = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_UC/baseline_simulation/results"  # Base case
+hourly_simulations_base = "MERHourlySimulations_fixstor"  # Base directory for hourly results
+output_base_dir = "hourly_comparison_results_UC"
 
 # Get all ActivePower*Variable files
 function get_activepower_files(directory)
@@ -153,21 +153,66 @@ function compare_activepowervariable_files(dir1, dir2, hour, output_dir)
         tol = 1e-12
         col_diffs = Dict{String, Any}()
 
+        # Check if we have a DateTime/timestamp column to align data
+        timestamp_col = nothing
+        for col in common_cols
+            if lowercase(string(col)) in ["datetime", "timestamp", "time", "date"]
+                timestamp_col = col
+                break
+            end
+        end
+
+        # If DataFrames have different sizes, align them by timestamp if possible
+        if nrow(df1) != nrow(df2) && !isnothing(timestamp_col)
+            println("    Warning: Different data sizes ($(nrow(df1)) vs $(nrow(df2)) rows). Aligning by $timestamp_col...")
+            # Find overlapping timestamps
+            ts1 = df1[!, timestamp_col]
+            ts2 = df2[!, timestamp_col]
+            common_timestamps = intersect(ts1, ts2)
+            
+            if !isempty(common_timestamps)
+                # Filter both dataframes to common timestamps
+                df1_filtered = filter(row -> row[timestamp_col] in common_timestamps, df1)
+                df2_filtered = filter(row -> row[timestamp_col] in common_timestamps, df2)
+                
+                # Sort by timestamp to ensure proper alignment
+                sort!(df1_filtered, timestamp_col)
+                sort!(df2_filtered, timestamp_col)
+                
+                println("    Comparing $(length(common_timestamps)) overlapping timestamps")
+                df1 = df1_filtered
+                df2 = df2_filtered
+            else
+                println("    Warning: No overlapping timestamps found!")
+            end
+        end
+
         for col in common_cols
             # Defensive column extraction
             col1 = df1[!, col]
             col2 = df2[!, col]
+
+            # Skip comparison if arrays have different sizes and we couldn't align them
+            if length(col1) != length(col2)
+                println("    Skipping column $col due to size mismatch ($(length(col1)) vs $(length(col2)))")
+                continue
+            end
 
             # Numerical comparison (handle missings)
             is_num = eltype(col1) <: Number && eltype(col2) <: Number
             if is_num
                 # compute diffs skipping pairs where either is missing
                 diffs_list = Float64[]
-                for (x, y) in zip(col1, col2)
-                    if !(ismissing(x) || ismissing(y))
+                missing_pattern_differs = false
+                
+                for (i, (x, y)) in enumerate(zip(col1, col2))
+                    if ismissing(x) != ismissing(y)
+                        missing_pattern_differs = true
+                    elseif !(ismissing(x) || ismissing(y))
                         push!(diffs_list, abs(float(x) - float(y)))
                     end
                 end
+                
                 if !isempty(diffs_list)
                     max_abs_diff = maximum(diffs_list)
                     mean_abs_diff = mean(diffs_list)
@@ -177,7 +222,7 @@ function compare_activepowervariable_files(dir1, dir2, hour, output_dir)
                     mean_abs_diff = 0.0
                 end
 
-                if max_abs_diff > tol || any(ismissing.(col1) .!= ismissing.(col2))
+                if max_abs_diff > tol || missing_pattern_differs
                     col_diffs[string(col)] = Dict(
                         "type" => "numeric",
                         "max_abs_diff" => max_abs_diff,
@@ -188,7 +233,12 @@ function compare_activepowervariable_files(dir1, dir2, hour, output_dir)
                 end
             else
                 # Non-numeric: check element-wise equality while handling missing
-                eqcount = count(x -> x === true, (col1 .== col2))
+                eqcount = 0
+                for (x, y) in zip(col1, col2)
+                    if x == y  # This handles missing == missing as true
+                        eqcount += 1
+                    end
+                end
                 nrows = length(col1)
                 ndiff = nrows - eqcount
                 if ndiff > 0
@@ -224,8 +274,8 @@ function compare_activepowervariable_files(dir1, dir2, hour, output_dir)
     return results, files_with_diffs, length(common_files)
 end
 
-# Find all hourly simulation directories
-function find_hourly_simulation_dirs()
+# Find all hourly simulation directories and merge their daily results
+function find_and_merge_hourly_simulation_dirs()
     if !isdir(hourly_simulations_base)
         error("Hourly simulations base directory not found: $hourly_simulations_base")
     end
@@ -234,39 +284,70 @@ function find_hourly_simulation_dirs()
     dirs = readdir(hourly_simulations_base)
     hour_dirs = filter(d -> startswith(d, "hour_") && isdir(joinpath(hourly_simulations_base, d)), dirs)
     
-    # Extract hour numbers and sort
-    hour_info = []
+    # Extract hour numbers and merge daily results for each hour
+    merged_hour_data = []
     for dir in hour_dirs
         match_result = match(r"hour_(\d+)", dir)
         if match_result !== nothing
             hour = parse(Int, match_result.captures[1])
             full_path = joinpath(hourly_simulations_base, dir)
+            day_dirs = readdir(full_path)
             
-            # Look for simulation results directory within the hour directory
-            # Check common simulation result patterns
-            results_patterns = ["*simulation*/results", "*/results", "results"]
-            results_dir = nothing
+            println("Processing hour $hour with $(length(day_dirs)) daily simulations...")
             
-            for pattern in results_patterns
-                potential_dirs = glob(pattern, full_path)
-                if !isempty(potential_dirs)
-                    results_dir = potential_dirs[1]  # Take the first match
-                    break
+            # Merge all daily results for this hour
+            merged_results_dir = joinpath(hourly_simulations_base, "merged_hour_$hour")
+            if !isdir(merged_results_dir)
+                mkpath(merged_results_dir)
+            end
+            
+            # Get list of files to merge from first daily simulation
+            first_day_dir = joinpath(full_path, day_dirs[1], "results")
+            if !isdir(first_day_dir)
+                println("  Warning: No results directory found in first daily simulation")
+                continue
+            end
+            
+            files_to_merge = get_activepower_files(first_day_dir)
+            
+            # Merge each file type across all daily simulations
+            for filename in files_to_merge
+                println("  Merging file: $filename")
+                merged_df = DataFrame()
+                
+                for day_dir in day_dirs
+                    results_dir = joinpath(full_path, day_dir, "results")
+                    file_path = joinpath(results_dir, filename)
+                    
+                    if isfile(file_path)
+                        df = CSV.read(file_path, DataFrame)
+                        if isempty(merged_df)
+                            merged_df = df
+                        else
+                            append!(merged_df, df)
+                        end
+                    end
                 end
+                
+                # Sort by DateTime if present
+                if "DateTime" in names(merged_df)
+                    sort!(merged_df, :DateTime)
+                end
+                
+                # Save merged file
+                merged_file_path = joinpath(merged_results_dir, filename)
+                CSV.write(merged_file_path, merged_df)
+                println("    Merged $(nrow(merged_df)) rows from $(length(day_dirs)) daily simulations")
             end
             
-            if results_dir !== nothing && isdir(results_dir)
-                push!(hour_info, (hour=hour, dir_name=dir, results_path=results_dir))
-            else
-                println("Warning: No results directory found in $full_path")
-            end
+            push!(merged_hour_data, (hour=hour, results_path=merged_results_dir))
         end
     end
     
     # Sort by hour
-    sort!(hour_info, by=x -> x.hour)
+    sort!(merged_hour_data, by=x -> x.hour)
     
-    return hour_info
+    return merged_hour_data
 end
 
 function run_all_hourly_comparisons()
@@ -284,14 +365,14 @@ function run_all_hourly_comparisons()
         error("Base case directory not found: $base_dir1")
     end
     
-    # Find all hourly simulation directories
-    hour_dirs = find_hourly_simulation_dirs()
+    # Find and merge all hourly simulation directories
+    hour_dirs = find_and_merge_hourly_simulation_dirs()
     
     if isempty(hour_dirs)
         error("No hourly simulation directories found in $hourly_simulations_base")
     end
     
-    println("Found $(length(hour_dirs)) hourly simulation directories:")
+    println("Found and merged $(length(hour_dirs)) hourly simulation directories:")
     for hour_info in hour_dirs
         println("  Hour $(hour_info.hour): $(hour_info.results_path)")
     end
@@ -308,19 +389,19 @@ function run_all_hourly_comparisons()
     
     for (i, hour_info) in enumerate(hour_dirs)
         hour = hour_info.hour
-        dir2 = hour_info.results_path
+        merged_results_dir = hour_info.results_path
         
         println("--- Processing hour $hour ($i of $total_dirs) ---")
         println("Comparing:")
         println("  Base case: $base_dir1")
-        println("  Hour $hour:   $dir2")
+        println("  Hour $hour (merged):   $merged_results_dir")
         
         try
             # Create hour-specific output directory
-            hour_output_dir = joinpath(output_base_dir, "hour_$(lpad(hour, 2, '0'))")
+            hour_output_dir = joinpath(output_base_dir, "hour_$(hour)")
             
-            # Run comparison
-            results, files_with_diffs, total_files = compare_activepowervariable_files(base_dir1, dir2, hour, hour_output_dir)
+            # Run comparison using merged results
+            results, files_with_diffs, total_files = compare_activepowervariable_files(base_dir1, merged_results_dir, hour, hour_output_dir)
             
             println("  ✓ Comparison completed: $files_with_diffs/$total_files files had differences")
             
