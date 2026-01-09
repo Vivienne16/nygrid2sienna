@@ -2,7 +2,15 @@ using PowerSystems
 const PSY = PowerSystems
 
 #Function to generate a time array with hourly timestamps for a given year
-get_timestamp(year) = DateTime("$(year)-01-01T00:00:00"):Hour(1):DateTime("$(year)-12-31T23:55:00")
+function get_timestamp(year)
+    timestamps = DateTime("$(year)-01-01T00:00:00"):Hour(1):DateTime("$(year)-12-31T23:00:00")
+    # If leap year, remove Dec 31 (last 24 hours)
+    if Dates.isleapyear(year)
+        timestamps = timestamps[1:end-24]
+    end
+    # Filter out Feb 29 if it's a leap year
+    return timestamps
+end
 
 
 function _build_bus(sys, number, name, bustype, angle, magnitude, voltage_limits, base_voltage, area)

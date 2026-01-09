@@ -22,21 +22,38 @@ const SSS = StorageSystemsSimulations
 include("parsing_utils.jl")
 include("post_process.jl")
 # Simulation setup parameters
-mer = false
-load_year = 2019
-
-if mer == false
-    sys_name = "mer_nys2030_$load_year.json"
-    sim_name = "mer_clcpa2030test"
-else
-    sys_name = "nys2030_$load_year.json"
-    sim_name = "clcpa2030test"
+function _get_load_year()
+  if length(ARGS) >= 1
+    try
+      return parse(Int, ARGS[1])
+    catch
+      error("Invalid load_year provided as ARGS[1]: $(ARGS[1])")
+    end
+  elseif haskey(ENV, "LOAD_YEAR")
+    try
+      return parse(Int, ENV["LOAD_YEAR"])
+    catch
+      error("Invalid LOAD_YEAR environment variable: $(ENV["LOAD_YEAR"])")
+    end
+  else
+    return 2019
+  end
 end
 
-output_dir = "HourlySimulation"
+load_year = _get_load_year()
+println("Using load_year = $load_year")
+mer = false
+if mer
+  sim_name = "mer_clcpa$(load_year)_test"
+  sys_name = "mer_nys2030_$(load_year).json"
+else
+  sim_name = "nys2030_$(load_year)_test"
+  sys_name = "nys2030_$(load_year).json"
+end
+output_dir = "2030_MER_Test"
 interval = 24
-horizon = 48
-steps = 364
+horizon = 24
+steps = 365
 
 # Check if the output directory exists, create if not
 if !ispath(output_dir)
@@ -69,18 +86,17 @@ solver = optimizer_with_attributes(
     "mip_abs_gap" => 5e-3,      # Set the relative MIP gap tolerance
 )
 # Create a power system
-sys = System(sys_name) 
+sys = System(joinpath("baseline_systems", sys_name))
 add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1);
 # Transform time series data for the specified horizon and interval
 PSY.transform_single_time_series!(sys, Hour(horizon), Hour(interval))
 
 # Create a unit commitment template using DC power flow model
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.AreaBalancePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
-template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.DCPPowerModel,use_slacks=true, PTDF_matrix=PTDF(sys)))
+template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.DCPPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.CopperPlatePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
 # Set device models for different components
-set_device_model!(template_uc, DeviceModel(ThermalStandard, ThermalDispatchNoMin))
-# set_device_model!(template_uc, DeviceModel(ThermalStandard, ThermalBasicDispatch;duals=[PSI.ActivePowerVariableLimitsConstraint]))
+set_device_model!(template_uc, ThermalStandard, ThermalDispatchNoMin)
 set_device_model!(template_uc, StandardLoad, StaticPowerLoad)
 set_device_model!(template_uc, DeviceModel(EnergyReservoirStorage, StorageDispatchWithReserves))
 # set_device_model!(template_uc, DeviceModel(EnergyReservoirStorage, StorageDispatchWithReserves;duals=[SSS.StateofChargeLimitsConstraint,PSI.InputActivePowerVariableLimitsConstraint,PSI.OutputActivePowerVariableLimitsConstraint,EnergyBalanceConstraint]))
@@ -149,206 +165,3 @@ export_results_csv(results_uc, variables, "ED", joinpath(results.path, "results"
 #     save=".",
 #     format="html"
 # );
-
-PTDF_matrix = PTDF(sys)
-base_power = get_base_power(sys)
-λ = PSI.read_realized_dual(results_uc, "CopperPlateBalanceConstraint__System")[:, 2]
-duals_line = PSI.read_realized_dual(results_uc, "NetworkFlowConstraint__Line")
-duals_transformer = PSI.read_realized_dual(results_uc, "NetworkFlowConstraint__Transformer2W")
-lmp = duals_line[:, [:DateTime]]
-for bus in get_components(ACBus, sys)
-    if in(get_number(bus),PTDF_matrix.axes[1])
-        lmp[:, get_name(bus)] = (λ .+ sum(duals_line[:,l]*PTDF_matrix[l,get_number(bus)] for l in names(duals_line)[2:end])) ./base_power
-    end
-end
-lmp = lmp/-100.0
-CSV.write("lmp_DC.csv", lmp)
-
-pg = variables["ActivePowerVariable__ThermalStandard"]
-lims = get_active_power_limits.(get_components(ThermalStandard, sys))
-# extract min and max into plain Float64 vectors
-pmin = [l.min for l in lims]*100
-pmax = [l.max for l in lims]*100
-bus_id = get_name.(get_bus.(get_components(ThermalStandard, sys)))
-gen_to_bus = Dict()
-gen_cost = Dict()
-for gen in get_components(ThermalStandard, sys)
-    gen_name = get_name(gen)
-    bus_name = get_name(get_bus(gen))
-    op_cost = get_operation_cost(gen)
-    variable_cost = op_cost.variable
-    fuel_cost = variable_cost.fuel_cost
-    heat_rate = variable_cost.value_curve.function_data.proportional_term
-    cost_a = fuel_cost .* heat_rate
-    gen_to_bus[gen_name] = bus_name
-    gen_cost[gen_name] = cost_a
-end
-
-# Build gen dispatch DataFrame from realized variables for ThermalStandard
-# `pg` is the realized ActivePowerVariable__ThermalStandard (TimeArray/DataFrame-like)
-gen_df = DataFrame(pg)
-
-
-# normalize column names to Strings for consistent lookup
-orig_names = names(gen_df)
-for n in orig_names
-    if n !== "DateTime"
-        newn = String(n)
-        if newn != String(n)
-            DataFrames.rename!(gen_df, n => newn)
-        else
-            # ensure it's a String column name
-            DataFrames.rename!(gen_df, n => newn)
-        end
-    end
-end
-
-# Build a mapping from generator name -> column in gen_df (keep original key types)
-gen_col_map = Dict{Any, Symbol}()
-cols = names(gen_df)
-for g in keys(gen_to_bus)
-    gstr = String(g)
-    # try exact match on String form
-    match = findfirst(c -> String(c) == gstr, cols)
-    if match === nothing
-        # try contains or startswith
-        match = findfirst(c -> occursin(gstr, String(c)) || startswith(String(c), gstr), cols)
-    end
-    if match === nothing
-        @warn "No column found in gen_df matching generator name" gen=String(g)
-    else
-        col = cols[match]
-        # normalize column identifier to Symbol for consistent indexing
-        col_sym = try
-            convert(Symbol, col)
-        catch
-            Symbol(string(col))
-        end
-        gen_col_map[g] = col_sym
-    end
-end
-@info "Generator to column matches" matched = length(gen_col_map) total_gens = length(keys(gen_to_bus))
-
-# Helpers for robust dict and column lookups
-function dict_lookup(d::AbstractDict, key)
-    if haskey(d, key)
-        return d[key]
-    end
-    ks = string(key)
-    if haskey(d, ks)
-        return d[ks]
-    end
-    ks_sym = Symbol(ks)
-    if haskey(d, ks_sym)
-        return d[ks_sym]
-    end
-    return nothing
-end
-
-function find_lmp_col(lmp::DataFrame, busname::AbstractString)
-    cols = names(lmp)
-    # try exact symbol and string matches
-    sym = Symbol(busname)
-    if sym in cols
-        return sym
-    end
-    if busname in cols
-        return busname
-    end
-    # fuzzy match
-    for c in cols
-        cn = String(c)
-        if occursin(busname, cn) || occursin(cn, busname) || startswith(cn, busname) || startswith(busname, cn)
-            return c
-        end
-    end
-    return nothing
-end
-
-# Updated function uses gen_col_map to read dispatch values and flexible lookups
-function find_hourly_marginal_gens(
-    gen_df::DataFrame,
-    lmp::DataFrame,
-    gen_col_map::AbstractDict,
-    gen_to_bus::AbstractDict,
-    gen_cost::AbstractDict,
-    pmin::Vector{Float64},
-    pmax::Vector{Float64};
-    eps_price=0.1
-)
-    @assert gen_df.DateTime == lmp.DateTime "Time stamps differ between gen and LMP data"
-
-    # --- Build generator limit dictionary (consistent with gen_to_bus order) ---
-    gen_list = collect(keys(gen_to_bus))
-    gen_limits = Dict(gen_list[i] => (pmin[i], pmax[i]) for i in 1:length(gen_list))
-
-    marginals = Dict{DateTime, Vector{String}}()
-
-    # --- Optional scaling check between gen_cost and LMPs ---
-    mean_cost = mean(abs.(collect(values(gen_cost))))
-    mean_lmp = mean(skipmissing(vcat(eachcol(lmp[:, Not(:DateTime)])...)))
-    if mean_cost < 0.01 * mean_lmp
-        @warn "Detected scale mismatch between gen_cost and LMP (multiplying gen_cost by 1000)"
-        gen_cost = Dict(k => v * 1000 for (k, v) in gen_cost)
-    end
-
-    # --- Loop over time steps ---
-    for r in 1:nrow(gen_df)
-        t = gen_df.DateTime[r]
-        mg = String[]
-
-        for (gen_key, col) in gen_col_map
-            val = gen_df[r, col]
-            if val === missing || (isa(val, Real) && isnan(val))
-                continue
-            end
-
-            bus = dict_lookup(gen_to_bus, gen_key)
-            if bus === nothing
-                continue
-            end
-
-            lmp_col = find_lmp_col(lmp, string(bus))
-            if lmp_col === nothing
-                continue
-            end
-
-            lmp_val = lmp[r, lmp_col]
-            if lmp_val === missing || (isa(lmp_val, Real) && isnan(lmp_val))
-                continue
-            end
-
-            cost = dict_lookup(gen_cost, gen_key)
-            if cost === nothing
-                continue
-            end
-            mc = float(cost)
-
-            lims = dict_lookup(gen_limits, gen_key)
-            if lims === nothing
-                continue
-            end
-            (pmin_g, pmax_g) = lims
-
-            # --- Core marginality condition ---
-            # 1. Generator output is inside its feasible range (not at limits)
-            # 2. LMP is close to or above its marginal cost (within tolerance)
-            if val > pmin_g + 1e-3 && val < pmax_g - 1e-3 && float(lmp_val) >= mc - eps_price
-                push!(mg, string(gen_key))
-            end
-        end
-
-        marginals[t] = mg
-    end
-
-    return marginals
-end
-# Call the updated function
-marginal_gens = find_hourly_marginal_gens(gen_df, lmp, gen_col_map, gen_to_bus, gen_cost,pmin,pmax, eps_price=0.1)
-@info "Computed hourly marginal generators" hours=length(keys(marginal_gens)) matched_gens=length(gen_col_map)
-
-# Write marginals to CSV: DateTime, Marginals (semicolon-separated)
-out = DataFrame(DateTime = collect(keys(marginal_gens)), Marginals = [join(marginal_gens[t], ";") for t in collect(keys(marginal_gens))])
-CSV.write(joinpath(results.path, "hourly_marginal_gens.csv"), out)
-@info "Wrote hourly_marginal_gens.csv" rows=nrow(out)
-

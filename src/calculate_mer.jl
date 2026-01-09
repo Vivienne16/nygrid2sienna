@@ -44,7 +44,7 @@ function load_thermal_config()
     df = CSV.read(config_path, DataFrame)
     
     # Add emission factors based on fuel type
-    df.emission_factor = map(fuel -> get(EMISSION_FACTORS, fuel, 0.0), df.FuelType)
+    df.emission_factor = map(row -> row.emissionFactor * row.HeatRateLM_1, eachrow(df))
     
     return df
 end

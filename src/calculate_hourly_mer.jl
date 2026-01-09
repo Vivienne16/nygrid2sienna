@@ -17,6 +17,20 @@ where:
 """
 
 # Emission factors by fuel type (kg CO2/MWh)
+# const EMISSION_FACTORS = Dict(
+#     "Natural Gas" => 820.0,     # kg CO2/MWh for combined cycle
+#     "Coal" => 2200.0,           # kg CO2/MWh for coal
+#     "Oil" => 1800.0,            # kg CO2/MWh for oil
+#     "Fuel Oil 2" => 1850.0,     # kg CO2/MWh for fuel oil 2 (distillate)
+#     "Fuel Oil 6" => 1900.0,     # kg CO2/MWh for fuel oil 6 (residual)
+#     "Kerosene" => 1900.0,       # kg CO2/MWh for kerosene
+#     "Diesel" => 1900.0,         # kg CO2/MWh for diesel
+#     "Nuclear" => 0.0,           # kg CO2/MWh for nuclear
+#     "Hydro" => 0.0,             # kg CO2/MWh for hydro
+#     "Wind" => 0.0,              # kg CO2/MWh for wind
+#     "Solar" => 0.0,             # kg CO2/MWh for solar
+#     "AggGen" => 850.0           # kg CO2/MWh for aggregated generators (Natural Gas + 30)
+# )
 const EMISSION_FACTORS = Dict(
     # "Natural Gas" => 820.0,     # kg CO2/MWh for combined cycle
     # "Coal" => 2200.0,           # kg CO2/MWh for coal

@@ -22,7 +22,7 @@ using PowerSystems
 const PSY = PowerSystems
 const IS = InfrastructureSystems
 
-include("parsing_utils.jl")
+include("src/parsing_utils.jl")
 
 # Configuration parameters
 base_power = 100
@@ -365,7 +365,7 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
     end
     
     ###### Comstock Load ##########
-    comstock_load_profile = CSV.read("load_profile/Comload/Comload_" * string(load_year) * ".csv", DataFrame)
+    comstock_load_profile = CSV.read("load_profile/ComLoad/ComLoad_" * string(load_year) * ".csv", DataFrame)
     for busid in names(comstock_load_profile)
         if busid == "1"
             continue
@@ -377,7 +377,7 @@ function create_system_with_hourly_mer(target_hour, output_filename=nothing)
     end
     
     ###### Resstock Load ##########
-    resstock_load_profile = CSV.read("load_profile/Resload/Resload_" * string(load_year) * ".csv", DataFrame)
+    resstock_load_profile = CSV.read("load_profile/ResLoad/ResLoad_" * string(load_year) * ".csv", DataFrame)
     for busid in names(resstock_load_profile)
         if busid == "1"
             continue

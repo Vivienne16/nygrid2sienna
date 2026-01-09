@@ -31,7 +31,7 @@ mkdir -p logs
 
 
 # Run SystemParsing for this year
-# srun $JULIA_DIR/bin/julia --project=. $SYSTEM_SCRIPT $YEAR
+srun --export=ALL $JULIA_DIR/bin/julia --project=. $SYSTEM_SCRIPT $YEAR
 
 
 # Run system simulation (adjust args if needed)

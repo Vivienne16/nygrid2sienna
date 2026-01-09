@@ -4,8 +4,8 @@ using Statistics
 using Glob
 
 # Configuration
-base_dir1 = "/Users/vivienneliu/GitHub/nygrid2sienna/HourlySimulations/hour_24/hour_24_simulation/results"  # Base case
-hourly_simulations_base = "HourlySimulations"  # Base directory for hourly results
+base_dir1 = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations/baseline/baseline_simulation/results"  # Base case
+hourly_simulations_base = "MERHourlySimulations"  # Base directory for hourly results
 output_base_dir = "hourly_comparison_results"
 
 # Get all ActivePower*Variable files

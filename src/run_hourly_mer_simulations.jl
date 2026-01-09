@@ -22,6 +22,7 @@ using PowerSystems
 using TimeSeries
 using JuMP
 using HiGHS
+using Gurobi
 using StorageSystemsSimulations
 using HydroPowerSimulations
 using DataFrames
@@ -34,24 +35,43 @@ const PSY = PowerSystems
 const PG = PowerGraphics
 const SSS = StorageSystemsSimulations
 
+function get_env()
+    while true
+        try
+            return Gurobi.Env()
+        catch e
+            retrytime = rand()*60
+            println("No Gurobi licenses available, retrying in $retrytime seconds")
+            sleep(retrytime)
+        end
+    end
+end
+const GRB_ENV = get_env()
+solver = optimizer_with_attributes(
+    () -> Gurobi.Optimizer(GRB_ENV),
+    "TimeLimit" => 10000.0,     # Set the maximum solver time (in seconds)
+    "OutputFlag" => 1,          # Enable logging to console
+    "Threads" => 8,             # Set the number of solver threads to use
+    "MIPGap" => 1e-3            # Set the relative MIP gap tolerance
+)
 # Include utility scripts
-include("parsing_utils.jl")
-include("post_process.jl")
+include("src/parsing_utils.jl")
+include("src/post_process.jl")
 
 # Simulation configuration
 load_year = 2019
 base_output_dir = "MERHourlySimulations"
 interval = 24
 horizon = 24
-steps = 1
+steps = 365
 
 # Solver configuration
-solver = optimizer_with_attributes(
-    HiGHS.Optimizer,
-    "time_limit" => 600.0,     # 10 minutes max per simulation
-    "log_to_console" => true,  
-    "mip_abs_gap" => 5e-3,      
-)
+# solver = optimizer_with_attributes(
+#     HiGHS.Optimizer,
+#     "time_limit" => 600.0,     # 10 minutes max per simulation
+#     "log_to_console" => true,  
+#     "mip_abs_gap" => 5e-3,      
+# )
 
 function find_hourly_systems()
     """Find all hourly system JSON files including baseline system."""
@@ -155,7 +175,7 @@ function extract_generator_timeseries(baseline_results_path)
         df = CSV.read(gen_power_file, DataFrame)
         
         # Extract all generator columns (excluding DateTime)
-        all_gen_cols = filter(col -> col != "DateTime", names(df))
+        all_gen_cols = filter(col -> col != "DateTime" && (occursin("AggGen", col) || occursin("import", col)), names(df))
         
         if !isempty(all_gen_cols)
             println("    Found $(length(all_gen_cols)) generator columns: $(all_gen_cols)")
@@ -246,7 +266,7 @@ function convert_generators_to_loads(system_filename, generator_timeseries, hour
                 available=true,                    # Mark the component as available
                 bus=bus,                           # Assign the bus to the component
                 base_power=100.0,                  # Base power of the load component (in kW)
-                max_constant_active_power=maximum(abs.(negative_load_ts)),  # Maximum constant active power of the load component (scaled from the maximum of the load time series)
+                max_constant_active_power=maximum(abs.(negative_load_ts))/100.0,  # Maximum constant active power of the load component (scaled from the maximum of the load time series)
             )
 
             PSY.add_component!(sys, new_load)
@@ -255,7 +275,7 @@ function convert_generators_to_loads(system_filename, generator_timeseries, hour
             if maximum(abs.(negative_load_ts)) == 0.0
                 PSY.add_time_series!(
                     sys,
-                    load,
+                    new_load,
                     PSY.SingleTimeSeries(
                         "max_active_power",
                         TimeArray(get_timestamp(load_year), negative_load_ts),
@@ -265,7 +285,7 @@ function convert_generators_to_loads(system_filename, generator_timeseries, hour
             else
                 PSY.add_time_series!(
                     sys,
-                    load,
+                    new_load,
                     PSY.SingleTimeSeries(
                         "max_active_power",
                         TimeArray(get_timestamp(load_year), negative_load_ts / maximum(abs.(negative_load_ts))),
@@ -300,7 +320,7 @@ function convert_generators_to_loads(system_filename, generator_timeseries, hour
     PSY.to_json(sys, joinpath("MERsystems", modified_filename), force=true)
     println("  Modified system saved to: $modified_filename")
     
-    return modified_filename
+    return joinpath("MERsystems", modified_filename)
 end
 
 function run_simulation_for_hour(hour, filename, output_dir)
@@ -321,7 +341,7 @@ function run_simulation_for_hour(hour, filename, output_dir)
     try
         # Load system
         println("Loading system...")
-        sys = System(joinpath("MERsystems", filename))
+        sys = System(filename)
         
         # Verify system loaded correctly
         num_buses = length(get_components(Bus, sys))
