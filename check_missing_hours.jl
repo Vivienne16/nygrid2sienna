@@ -105,7 +105,7 @@ end
 if length(ARGS) >= 1
     results_dir = ARGS[1]
 else
-    results_dir = "MERHourlySimulations_UC_noreserve_pmin_fixed_newre"
+    results_dir = "BASEHourlySimulations_2005"
 end
 
 missing_hours = check_missing_hours(results_dir)

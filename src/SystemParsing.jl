@@ -7,7 +7,7 @@ using PowerSystems
 const PSY = PowerSystems
 const IS = InfrastructureSystems
 
-include("src/parsing_utils.jl")
+include("parsing_utils.jl")
 mer = false  # whether to include mer load
 base_power = 100
 

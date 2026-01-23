@@ -38,24 +38,33 @@ const PSY = PowerSystems
 const PG = PowerGraphics
 const SSS = StorageSystemsSimulations
 
-function get_env()
-    while true
-        try
-            return Gurobi.Env()
-        catch e
-            retrytime = rand()*60
-            println("No Gurobi licenses available, retrying in $retrytime seconds")
-            sleep(retrytime)
-        end
-    end
-end
-const GRB_ENV = get_env()
+# Gurobi solver (commented out due to license server issues)
+# function get_env()
+#     while true
+#         try
+#             return Gurobi.Env()
+#         catch e
+#             retrytime = rand()*60
+#             println("No Gurobi licenses available, retrying in $retrytime seconds")
+#             sleep(retrytime)
+#         end
+#     end
+# end
+# const GRB_ENV = get_env()
+# solver = optimizer_with_attributes(
+#     () -> Gurobi.Optimizer(GRB_ENV),
+#     "TimeLimit" => 10000.0,
+#     "OutputFlag" => 1,
+#     "Threads" => 8,
+#     "MIPGap" => 5e-4
+# )
+
+# Use HiGHS solver (free, no license needed)
 solver = optimizer_with_attributes(
-    () -> Gurobi.Optimizer(GRB_ENV),
-    "TimeLimit" => 10000.0,
-    "OutputFlag" => 1,
-    "Threads" => 8,
-    "MIPGap" => 5e-4
+    HiGHS.Optimizer,
+    "time_limit" => 10000.0,
+    "log_to_console" => true,
+    "mip_rel_gap" => 5e-4
 )
 
 # Include utility scripts
@@ -64,13 +73,13 @@ include("post_process.jl")
 
 mer_run = true  # whether to include mer load
 # Simulation configuration
-load_year = 2019
-baseline_system_path = "baseline_systems/nys2030_2019.json"
-baseline_results_path = "MERHourlySimulations_UC_noreserve_newre/baseline_simulation"
+load_year = 2005
+baseline_system_path = "baseline_systems/nys2030_$load_year.json"
+baseline_results_path = "BaselineSimulation/baseline_simulation_$load_year"
 if mer_run
-    base_output_dir = "MERHourlySimulations_UC_noreserve_pmin_fixed_newre"
+    base_output_dir = "MERHourlySimulations_$load_year"
 else
-    base_output_dir = "BASEHourlySimulations_UC_noreserve_newre"
+    base_output_dir = "BASEHourlySimulations_$load_year"
 end
 
 function load_baseline_system()
@@ -187,7 +196,7 @@ function extract_renewable_timeseries(baseline_results_path, hour_index::Int)
     renewable_timeseries = Dict()
     
     # Read from the specific hour's baseline results
-    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_UC_noreserve_newre/hour_$(hour_index)"
+    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_$load_year/hour_$(hour_index)"
     results_dir = joinpath(hourly_results_dir, "results")
     renewable_power_file = joinpath(results_dir, "ActivePowerVariable__RenewableDispatch_ED.csv")
     
@@ -232,7 +241,7 @@ function set_re_pmin!(sys, baseline_results_path, initial_hour, mer_run::Bool)
     hour_index = Int(Dates.value(initial_hour - year_start) / (1000 * 60 * 60)) + 1
     
     # Read from hourly baseline results
-    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_UC_noreserve_newre/hour_$(hour_index)"
+    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_$load_year/hour_$(hour_index)"
     results_dir = joinpath(hourly_results_dir, "results")
     re_file = joinpath(results_dir, "ActivePowerVariable__RenewableDispatch_ED.csv")
     
@@ -627,7 +636,7 @@ function set_initial_thermal_states!(sys, baseline_results_path, initial_hour, m
     hour_index = Int(Dates.value(initial_hour - year_start) / (1000 * 60 * 60)) + 1
     
     # Read from hourly baseline results
-    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_UC_noreserve_newre/hour_$(hour_index)"
+    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_$load_year/hour_$(hour_index)"
     results_dir = joinpath(hourly_results_dir, "results")
     thermal_file = joinpath(results_dir, "ActivePowerVariable__ThermalStandard_ED.csv")
     
@@ -715,7 +724,7 @@ function set_hydro_pmin!(sys, baseline_results_path, initial_hour, mer_run::Bool
     hour_index = Int(Dates.value(initial_hour - year_start) / (1000 * 60 * 60)) + 1
     
     # Read from hourly baseline results
-    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_UC_noreserve_newre/hour_$(hour_index)"
+    hourly_results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/BASEHourlySimulations_$load_year/hour_$(hour_index)"
     results_dir = joinpath(hourly_results_dir, "results")
     hydro_file = joinpath(results_dir, "ActivePowerVariable__HydroDispatch_ED.csv")
     

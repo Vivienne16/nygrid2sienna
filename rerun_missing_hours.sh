@@ -6,7 +6,7 @@
 # Usage: bash rerun_missing_hours.sh [results_directory]
 
 # Set default results directory
-RESULTS_DIR="${1:-MERHourlySimulations_UC_noreserve_pmin_fixed_newre}"
+RESULTS_DIR="${1:-BASEHourlySimulations_2005}"
 
 echo "=========================================="
 echo "RERUNNING MISSING HOURS"

@@ -89,3 +89,9 @@ nygrid/lib/*
 nygrid/share*
 nygrid/*
 MERsystems/*
+
+MERHourlySimulations_*/*
+BASEHourlySimulations_*/*
+BaseSimulation/*
+BaselineSimulation/*
+plotenv/*

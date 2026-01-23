@@ -56,11 +56,19 @@ solver = optimizer_with_attributes(
 )
 # Include utility scripts
 const SCRIPT_DIR = @__DIR__
-include(joinpath(SCRIPT_DIR, "src", "parsing_utils.jl"))
-include(joinpath(SCRIPT_DIR, "src", "post_process.jl"))
+include(joinpath(SCRIPT_DIR, "parsing_utils.jl"))
+include(joinpath(SCRIPT_DIR, "post_process.jl"))
 
 # Simulation configuration
-load_year = 2019
+# Get load_year from command line argument, default to 2019 if not provided
+if length(ARGS) >= 1
+    load_year = parse(Int, ARGS[1])
+    println("Using load_year from command line: $load_year")
+else
+    load_year = 2019
+    println("Using default load_year: $load_year")
+end
+
 base_output_dir = "MERHourlySimulations_UC_noreserve_newre"
 
 
@@ -456,7 +464,7 @@ function run_simulation_for_hour(hour, filename, output_dir, interval, horizon, 
         
         # Create simulation object
         if hour == 24
-            sim_name = "baseline_simulation"
+            sim_name = "baseline_simulation_$(load_year)"
         else
             sim_name = "hour_$(hour)_$(day_id)"
         end
