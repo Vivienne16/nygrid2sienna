@@ -2,6 +2,7 @@ using CSV
 using DataFrames
 using Statistics
 using Glob
+using Dates
 
 """
 Calculate Marginal Emission Rate (MER) for each hourly comparison result.
@@ -46,12 +47,10 @@ const EMISSION_FACTORS = Dict(
     "AggGen" => 0.06           # kg CO2/MWh for aggregated generators (Natural Gas + 30)
 )
 
-# Storage discharge emission intensity (kg CO2/MWh)
-STORAGE_DISCHARGE_EMISSION_FACTOR = 0.0
-
 # Configuration
-hourly_comparison_base = "hourly_comparison_results"
-mer_results_base = "hourly_mer_results"
+hourly_comparison_base = "comparison_bus65_vs_load_addition"
+mer_results_base = "merged_hourly_mer_results_bus65_vs_load_addition"
+!isdir(mer_results_base) && mkpath(mer_results_base)
 
 function load_thermal_config()
     """Load thermal generator configuration with fuel types and emission factors"""
@@ -83,6 +82,20 @@ function load_agggen_config()
     
     # Add emission factors for AggGens (Natural Gas + 30)
     df.emission_factor = map(name -> contains(name, "AggGen") ? EMISSION_FACTORS["AggGen"] : 0.0, df.Name)
+    
+    return df
+end
+
+function load_storage_intensity()
+    """Load aggregated hourly storage intensity from baseline simulation"""
+    intensity_path = "MERHourlySimulations_UC/baseline_simulation/aggregated_storage_intensity_hourly_UC.csv"
+    
+    if !isfile(intensity_path)
+        @warn "Aggregated storage intensity file not found: $intensity_path"
+        return DataFrame()
+    end
+    
+    df = CSV.read(intensity_path, DataFrame)
     
     return df
 end
@@ -162,7 +175,7 @@ function aggregate_agggen_by_zone(thermal_df, agggen_config)
     return new_df, zone_emission_factors
 end
 
-function calculate_hourly_mer(power_diffs, thermal_config, agggen_config, hour)
+function calculate_hourly_mer(power_diffs, thermal_config, agggen_config, storage_intensity_df, hour)
     """Calculate MER for a specific hour using its power differences"""
     
     # Create lookup dictionary for emission factors (thermal generators)
@@ -196,13 +209,14 @@ function calculate_hourly_mer(power_diffs, thermal_config, agggen_config, hour)
         
         for (i, row) in enumerate(eachrow(thermal_df_agg))
             power_changes = Float64[]
+            power_changes_name = String[]
             emissions_changes = Float64[]
             thermal_power_changes = Float64[]
             thermal_emissions_changes = Float64[]
             storage_power_changes = Float64[]
             storage_emissions_changes = Float64[]
             
-            # Process thermal generation differences
+            # Process thermal generation differences (fossil fuels + nuclear)
             for col in names(thermal_df_agg)
                 if endswith(col, "_diff") && col != time_col
                     gen_name = extract_generator_name(col)
@@ -218,9 +232,50 @@ function calculate_hourly_mer(power_diffs, thermal_config, agggen_config, hour)
                     emission_change = power_change * emission_factor
                     
                     push!(power_changes, power_change)
+                    push!(power_changes_name, gen_name)
                     push!(emissions_changes, emission_change)
                     push!(thermal_power_changes, power_change)
                     push!(thermal_emissions_changes, emission_change)
+                end
+            end
+            
+            # Process renewable generation differences (wind, solar - zero emissions)
+            if haskey(power_diffs, "ActivePowerVariable__RenewableDispatch_ED_ED")
+                renewable_df = power_diffs["ActivePowerVariable__RenewableDispatch_ED_ED"]
+                if i <= nrow(renewable_df)
+                    renewable_row = renewable_df[i, :]
+                    for col in names(renewable_df)
+                        if endswith(col, "_diff") && col != time_col
+                            power_change = renewable_row[col]
+                            if !ismissing(power_change) && abs(power_change) > 1e-6
+                                push!(power_changes, power_change)
+                                push!(power_changes_name, extract_generator_name(col))
+                                push!(emissions_changes, 0.0)  # Zero emissions
+                                push!(thermal_power_changes, power_change)
+                                push!(thermal_emissions_changes, 0.0)
+                            end
+                        end
+                    end
+                end
+            end
+            
+            # Process hydro generation differences (zero emissions)
+            if haskey(power_diffs, "ActivePowerVariable__HydroDispatch_ED_ED")
+                hydro_df = power_diffs["ActivePowerVariable__HydroDispatch_ED_ED"]
+                if i <= nrow(hydro_df)
+                    hydro_row = hydro_df[i, :]
+                    for col in names(hydro_df)
+                        if endswith(col, "_diff") && col != time_col
+                            power_change = hydro_row[col]
+                            if !ismissing(power_change) && abs(power_change) > 1e-6
+                                push!(power_changes, power_change)
+                                push!(power_changes_name, extract_generator_name(col))
+                                push!(emissions_changes, 0.0)  # Zero emissions
+                                push!(thermal_power_changes, power_change)
+                                push!(thermal_emissions_changes, 0.0)
+                            end
+                        end
+                    end
                 end
             end
             
@@ -228,10 +283,10 @@ function calculate_hourly_mer(power_diffs, thermal_config, agggen_config, hour)
             total_thermal_power_change = sum(thermal_power_changes)
             total_thermal_emission_change = sum(thermal_emissions_changes)
             
-            grid_emission_intensity = abs(total_thermal_power_change) > 1e-6 ? 
-                                    total_thermal_emission_change / total_thermal_power_change : 
-                                    mean([v for v in values(emission_lookup) if v > 0])
-            
+            # grid_emission_intensity = abs(total_thermal_power_change) > 1e-6 ? 
+            #                         total_thermal_emission_change / total_thermal_power_change : 
+            #                         mean([v for v in values(emission_lookup) if v > 0])
+            grid_emission_intensity = 0.4 #TODO: FIX
             # Add storage charging/discharging effects
             storage_charge_map = Dict{String, Float64}()
             storage_discharge_map = Dict{String, Float64}()
@@ -276,8 +331,25 @@ function calculate_hourly_mer(power_diffs, thermal_config, agggen_config, hour)
                 charge_amt = get(storage_charge_map, sname, 0.0)
                 discharge_amt = get(storage_discharge_map, sname, 0.0)
                 net_storage = discharge_amt - charge_amt
-                emissions_net = discharge_amt * STORAGE_DISCHARGE_EMISSION_FACTOR - charge_amt * grid_emission_intensity
-
+                
+                # Get storage intensity from CSV for this timestep if available
+                storage_intensity = grid_emission_intensity  # default fallback
+                if !isempty(storage_intensity_df) && i <= nrow(storage_intensity_df)
+                    # Look for the avg_intensity column for this storage unit
+                    intensity_col = "$(sname)_avg_intensity"
+                    if intensity_col in names(storage_intensity_df)
+                        intensity_val = storage_intensity_df[i, intensity_col]
+                        if !ismissing(intensity_val) && !isnan(intensity_val)
+                            if intensity_val == 0.0
+                                intensity_val = grid_emission_intensity
+                            end
+                            storage_intensity = intensity_val
+                        end
+                    end
+                end
+                
+                emissions_net = discharge_amt * storage_intensity - charge_amt * grid_emission_intensity
+                # emissions_net = net_storage * storage_intensity
                 if abs(net_storage) > 1e-9
                     push!(power_changes, net_storage)
                     push!(emissions_changes, emissions_net)
@@ -442,6 +514,18 @@ function find_hourly_comparison_dirs()
     return hour_info
 end
 
+function filter_by_hour_of_day(df, target_hour)
+    """Filter dataframe to only include rows where the hour of day matches target_hour"""
+    
+    # Assume first column is DateTime
+    time_col = names(df)[1]
+    
+    # Filter rows where hour matches
+    filtered_df = filter(row -> Dates.hour(row[time_col]) == target_hour, df)
+    
+    return filtered_df
+end
+
 function run_all_hourly_mer_calculations()
     """Run MER calculations for all hourly comparison results"""
     
@@ -455,6 +539,7 @@ function run_all_hourly_mer_calculations()
     # Load configuration once
     thermal_config = load_thermal_config()
     agggen_config = load_agggen_config()
+    storage_intensity_df = load_storage_intensity()
     
     # Find all hourly comparison directories
     hour_dirs = find_hourly_comparison_dirs()
@@ -477,6 +562,7 @@ function run_all_hourly_mer_calculations()
     # Process each hour
     all_results = []
     all_stats = []
+    all_filtered_results = []  # Store filtered results for combining
     total_hours = length(hour_dirs)
     
     for (i, hour_info) in enumerate(hour_dirs)
@@ -497,20 +583,30 @@ function run_all_hourly_mer_calculations()
             
             # Calculate MER for this hour
             println("  Calculating MER for hour $current_hour...")
-            mer_results = calculate_hourly_mer(power_diffs, thermal_config, agggen_config, current_hour)
+            mer_results = calculate_hourly_mer(power_diffs, thermal_config, agggen_config, storage_intensity_df, current_hour)
             
             if nrow(mer_results) == 0
                 println("  ⚠️  No MER results calculated for hour $current_hour")
                 continue
             end
             
-            # Calculate summary statistics
+            # Filter results to only include rows matching this hour of day
+            println("  Filtering results to hour $current_hour of day...")
+            filtered_results = filter_by_hour_of_day(mer_results, current_hour)
+            println("    Original rows: $(nrow(mer_results)), Filtered rows: $(nrow(filtered_results))")
+            
+            if nrow(filtered_results) == 0
+                println("  ⚠️  No results remain after filtering for hour $current_hour")
+                continue
+            end
+            
+            # Calculate summary statistics on filtered results
             println("  Calculating summary statistics for hour $current_hour...")
-            stats = calculate_summary_statistics(mer_results, current_hour)
+            stats = calculate_summary_statistics(filtered_results, current_hour)
             
             # Save results
             println("  Saving results for hour $current_hour...")
-            timestep_file, stats_file = save_hourly_mer_results(mer_results, stats, current_hour, mer_results_base)
+            timestep_file, stats_file = save_hourly_mer_results(filtered_results, stats, current_hour, mer_results_base)
             
             println("  ✓ Hour $current_hour completed successfully!")
             println("    Timestep results: $timestep_file")
@@ -518,6 +614,7 @@ function run_all_hourly_mer_calculations()
             
             push!(all_results, mer_results)
             push!(all_stats, stats)
+            push!(all_filtered_results, filtered_results)
             
         catch e
             println("  ✗ Error processing hour $current_hour:")
@@ -525,6 +622,29 @@ function run_all_hourly_mer_calculations()
             @warn "MER calculation failed for hour $current_hour" exception=e
         end
         
+        println()
+    end
+    
+    # Combine all filtered results and sort by time
+    if !isempty(all_filtered_results)
+        println("="^80)
+        println("COMBINING AND SORTING RESULTS")
+        println("="^80)
+        
+        println("Combining $(length(all_filtered_results)) hourly results...")
+        combined_results = vcat(all_filtered_results...)
+        
+        println("  Total combined rows: $(nrow(combined_results))")
+        
+        # Sort by DateTime (first column)
+        time_col = names(combined_results)[1]
+        println("  Sorting by $time_col...")
+        sort!(combined_results, time_col)
+        
+        # Save combined results
+        combined_file = joinpath(mer_results_base, "all_hours_mer_combined_by_timestep_storagehourly.csv")
+        CSV.write(combined_file, combined_results)
+        println("  ✓ Combined and sorted results saved to: $combined_file")
         println()
     end
     

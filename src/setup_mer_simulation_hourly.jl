@@ -55,15 +55,22 @@ solver = optimizer_with_attributes(
     "MIPGap" => 1e-3            # Set the relative MIP gap tolerance
 )
 # Include utility scripts
-include("src/parsing_utils.jl")
-include("src/post_process.jl")
+const SCRIPT_DIR = @__DIR__
+include(joinpath(SCRIPT_DIR, "parsing_utils.jl"))
+include(joinpath(SCRIPT_DIR, "post_process.jl"))
 
 # Simulation configuration
-load_year = 2019
-base_output_dir = "MERHourlySimulations_PTDF"
-interval = 24
-horizon = 24
-steps = 365
+# Get load_year from command line argument, default to 2019 if not provided
+if length(ARGS) >= 1
+    load_year = parse(Int, ARGS[1])
+    println("Using load_year from command line: $load_year")
+else
+    load_year = 2019
+    println("Using default load_year: $load_year")
+end
+
+base_output_dir = "MERHourlySimulations_UC_noreserve_newre"
+
 
 # Solver configuration
 # solver = optimizer_with_attributes(
@@ -80,8 +87,8 @@ function find_hourly_systems()
     mer_pattern = "MERsystems/mer_hourly_*_nys2030_$(load_year).json"
     mer_files = glob(mer_pattern, ".")
     
-    # Look for baseline system (hour 24) in MERsystems directory  
-    baseline_pattern = "MERsystems/baseline_nys2030_$(load_year).json"
+    # Look for baseline system (hour 24) in baseline_systems directory  
+    baseline_pattern = "baseline_systems/nys2030_$(load_year).json"
     baseline_files = glob(baseline_pattern, ".")
     
     println("Debug: Looking for MER pattern: $mer_pattern")
@@ -128,11 +135,11 @@ function find_hourly_systems()
     return system_files
 end
 
-function setup_simulation_template(sys)
+function setup_simulation_template(sys, interval, horizon)
     """Set up the simulation template for a given system."""
     
     # Add reserves to the system
-    add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1)
+    # add_reserves(sys; reg_reserve_frac=0.05, spinning_reserve_frac=0.1)
     
     # Transform time series data
     PSY.transform_single_time_series!(sys, Hour(horizon), Hour(interval))
@@ -143,7 +150,7 @@ function setup_simulation_template(sys)
     )
     
     # Set device models
-    set_device_model!(template_uc, DeviceModel(ThermalStandard, ThermalDispatchNoMin))
+    set_device_model!(template_uc, DeviceModel(ThermalStandard, ThermalBasicUnitCommitment))
     set_device_model!(template_uc, StandardLoad, StaticPowerLoad)
     set_device_model!(template_uc, DeviceModel(EnergyReservoirStorage, StorageDispatchWithReserves))
     set_device_model!(template_uc, DeviceModel(Transformer2W, StaticBranch))
@@ -298,8 +305,6 @@ function convert_generators_to_loads(system_filename, generator_timeseries, hour
             push!(generators_to_remove, gen)
             
             println("    ✓ Prepared conversion: $gen_name -> $load_name")
-        else
-            @warn "No matching time series found for generator: $gen_name"
         end
     end
     
@@ -317,15 +322,84 @@ function convert_generators_to_loads(system_filename, generator_timeseries, hour
         modified_filename = "temp_mer_hour_$(hour)_converted.json"
     end
 
-    PSY.to_json(sys, joinpath("MERsystems", modified_filename), force=true)
-    println("  Modified system saved to: $modified_filename")
+    # Create temporary directory if it doesn't exist
+    temp_dir = "MERsystems_temp"
+    if !isdir(temp_dir)
+        mkpath(temp_dir)
+    end
     
-    return joinpath("MERsystems", modified_filename)
+    PSY.to_json(sys, joinpath(temp_dir, modified_filename), force=true)
+    println("  Modified system saved to: $(joinpath(temp_dir, modified_filename))")
+    
+    return joinpath("MERsystems_temp", modified_filename)
 end
 
-function run_simulation_for_hour(hour, filename, output_dir)
-    """Run simulation for a specific hour's system."""
+function set_initial_storage_levels!(sys,baseline_results_path,initial_hour)
+    """Set initial storage levels from baseline results for a given hour."""
     
+    println("Setting initial storage levels for hour $(Dates.hour(initial_hour))...")
+    
+    results_dir = joinpath(baseline_results_path, "results")
+    storage_file = joinpath(results_dir, "EnergyVariable__EnergyReservoirStorage_ED.csv")
+    
+    if isfile(storage_file)
+        df = CSV.read(storage_file, DataFrame)
+        matching_row = filter(row -> row.DateTime == initial_hour, df)
+        
+        if nrow(matching_row) == 0
+            @warn "No matching row found for initial_hour: $initial_hour. Skipping storage initialization."
+            return
+        end
+        
+        for storage in get_components(EnergyReservoirStorage, sys)
+            storage_name = PSY.get_name(storage)
+            println("  Processing storage: $storage_name")
+            
+            initial_level = matching_row[1, storage_name]
+            soc_max = PSY.get_storage_capacity(storage)
+            PSY.set_initial_storage_capacity_level!(storage, initial_level/soc_max)
+            println("    Set initial energy level to $initial_level kWh")
+        end
+    else
+        @warn "EnergyVariable__EnergyReservoirStorage_ED.csv not found in $results_dir"
+    end
+end
+
+function set_initial_thermal_states!(sys,baseline_results_path,initial_hour)
+    """Set initial thermal generator states from baseline results for a given hour."""
+    
+    println("Setting initial thermal generator states for hour $(Dates.hour(initial_hour))...")
+    
+    results_dir = joinpath(baseline_results_path, "results")
+    thermal_file = joinpath(results_dir, "ActivePowerVariable__ThermalStandard_ED.csv")
+    
+    if isfile(thermal_file)
+        df = CSV.read(thermal_file, DataFrame)
+        matching_row = filter(row -> row.DateTime == initial_hour, df)
+        for gen in get_available_components(ThermalStandard, sys)
+            gen_name = PSY.get_name(gen)
+            println("  Processing generator: $gen_name")
+            
+            # Find matching time series 
+            if nrow(matching_row) > 0
+                initial_active_power = matching_row[1, gen_name]
+                PSY.set_active_power!(gen, initial_active_power)
+                println("    Set initial active power to $initial_active_power")
+            else
+                @warn "No matching time series found for generator: $gen_name"
+            end
+        end
+    else
+        @warn "ActivePowerVariable__ThermalStandard_ED.csv not found in $results_dir"
+    end
+end
+
+function run_simulation_for_hour(hour, filename, output_dir, interval, horizon, steps, day_id, baseline_results_path)
+    """Run simulation for a specific hour's system."""
+    initial_time = DateTime(load_year, 1, 1)
+    if day_id > 1
+        initial_time = DateTime(load_year, 1, 1) + Day(day_id - 1) + Hour(0)
+    end
     if hour == 24
         println("\\n" * "="^60)
         println("RUNNING SIMULATION FOR BASELINE SYSTEM (HOUR 24)")
@@ -342,12 +416,23 @@ function run_simulation_for_hour(hour, filename, output_dir)
         # Load system
         println("Loading system...")
         sys = System(filename)
-        
+        for re in get_available_components(RenewableDispatch, sys)
+            re_name = PSY.get_name(re)
+            
+            
+            PSY.set_ext!(re, Dict("Pmin" => -10.0))
+
+            
+        end
         # Verify system loaded correctly
         num_buses = length(get_components(Bus, sys))
         num_loads = length(get_components(StandardLoad, sys))
         num_generators = length(get_components(Generator, sys))
-        
+        if hour < 24
+            initial_hour = initial_time - Hour(1)
+            set_initial_storage_levels!(sys,baseline_results_path,initial_hour)  # Set initial storage levels to 50% for MER systems
+            set_initial_thermal_states!(sys,baseline_results_path,initial_hour)    # Set initial thermal states to 50% for MER systems
+        end
         println("System loaded successfully:")
         println("  - Buses: $num_buses")
         println("  - Loads: $num_loads")
@@ -355,7 +440,7 @@ function run_simulation_for_hour(hour, filename, output_dir)
         
         # Setup simulation template
         println("Setting up simulation template...")
-        template_uc = setup_simulation_template(sys)
+        template_uc = setup_simulation_template(sys, interval, horizon)
         
         # Create simulation models
         models = SimulationModels(
@@ -379,9 +464,9 @@ function run_simulation_for_hour(hour, filename, output_dir)
         
         # Create simulation object
         if hour == 24
-            sim_name = "baseline_simulation"
+            sim_name = "baseline_simulation_$(load_year)"
         else
-            sim_name = "hour_$(hour)_simulation"
+            sim_name = "hour_$(hour)_$(day_id)"
         end
         sim = Simulation(
             name=sim_name,
@@ -389,6 +474,7 @@ function run_simulation_for_hour(hour, filename, output_dir)
             models=models,
             sequence=sequence,
             simulation_folder=output_dir,
+            initial_time=initial_time
         )
         
         # Build and execute simulation
@@ -403,7 +489,8 @@ function run_simulation_for_hour(hour, filename, output_dir)
         results = SimulationResults(sim; ignore_status=true)
         results_uc = get_decision_problem_results(results, "UC")
         set_system!(results_uc, sys)
-        
+        model = get_simulation_model(sim, :UC)
+        PSI.compute_conflict!(model.internal.container)
         # Read variables and export
         variables = PSI.read_realized_variables(results_uc)
         export_results_csv(results_uc, variables, "ED", joinpath(results.path, "results"))
@@ -441,8 +528,48 @@ function run_simulation_for_hour(hour, filename, output_dir)
     end
 end
 
-function run_all_hourly_simulations()
-    """Run simulations: baseline first, then 24 hourly MER systems with converted generators."""
+function run_baseline_simulation()
+    """Run the baseline simulation and return the results path."""
+    
+    println("\\n" * "="^80)
+    println("RUNNING BASELINE SIMULATION")
+    println("="^80)
+    
+    # Define simulation parameters first
+    interval = 24
+    horizon = 24
+    steps = 365
+    
+    # Find baseline system file
+    system_files = find_hourly_systems()
+    
+    if isempty(system_files)
+        error("No system files found! Make sure to run create_hourly_mer_systems.jl first and check the MERsystems/ directory.")
+    end
+    
+    # Separate baseline from MER systems
+    baseline_files = filter(s -> s.hour == 24, system_files)
+    baseline_info = baseline_files[1]
+    baseline_output_dir = joinpath(base_output_dir)
+    if !ispath(baseline_output_dir)
+        mkpath(baseline_output_dir)
+    end
+    println("Running baseline simulation...")
+    baseline_result = run_simulation_for_hour(baseline_info.hour, baseline_info.filename, baseline_output_dir, interval, horizon, steps, 0,"")
+    
+    if baseline_result.status != "success"
+        error("Baseline simulation failed! Cannot proceed with generator conversion. Error: $(baseline_result.error)")
+    end
+    
+    println("✓ Baseline simulation completed successfully!")
+    baseline_results_path = baseline_result.results_path
+
+    return baseline_results_path
+end
+
+
+function run_mer_simulations(baseline_results_path)
+    """Run 24 hourly MER systems with converted generators."""
     
     println("\\n" * "="^80)
     println("BATCH SIMULATION: 1 BASELINE + 24 MER (with generator conversion)")
@@ -455,62 +582,11 @@ function run_all_hourly_simulations()
         error("No system files found! Make sure to run create_hourly_mer_systems.jl first and check the MERsystems/ directory.")
     end
     
-    # Separate baseline from MER systems
-    baseline_files = filter(s -> s.hour == 24, system_files)
     mer_files = filter(s -> s.hour != 24, system_files)
-    
-    # Sort MER files by hour
     sort!(mer_files, by=x -> x.hour)
     
-    println("Found $(length(system_files)) system files:")
-    println("  Baseline systems: $(length(baseline_files))")
-    println("  MER systems: $(length(mer_files))")
-    
-    if isempty(baseline_files)
-        error("No baseline system found! Need baseline system to extract generator time series.")
-    end
-    
-    # Create base output directory
-    if !ispath(base_output_dir)
-        mkpath(base_output_dir)
-    end
-    
-    simulation_results = []
-    
-    # STEP 1: Run baseline simulation first
-    println("\\n" * "="^80)
-    println("STEP 1: RUNNING BASELINE SIMULATION")
-    println("="^80)
-    
-    baseline_info = baseline_files[1]
-    baseline_output_dir = joinpath(base_output_dir, "baseline")
-    if !ispath(baseline_output_dir)
-        mkpath(baseline_output_dir)
-    end
-    
-    println("Running baseline simulation...")
-    baseline_result = run_simulation_for_hour(baseline_info.hour, baseline_info.filename, baseline_output_dir)
-    push!(simulation_results, baseline_result)
-    
-    if baseline_result.status != "success"
-        error("Baseline simulation failed! Cannot proceed with generator conversion. Error: $(baseline_result.error)")
-    end
-    
-    println("✓ Baseline simulation completed successfully!")
-    baseline_results_path = baseline_result.results_path
-    
-    # STEP 2: Extract generator time series from baseline results
-    println("\\n" * "="^80)
-    println("STEP 2: EXTRACTING GENERATOR TIME SERIES FROM BASELINE")
-    println("="^80)
-    
     generator_timeseries = extract_generator_timeseries(baseline_results_path)
-    
-    # STEP 3: Run MER simulations with converted generators
-    println("\\n" * "="^80)
-    println("STEP 3: RUNNING MER SIMULATIONS WITH CONVERTED GENERATORS")
-    println("="^80)
-    
+
     total_mer_systems = length(mer_files)
     for (i, sys_info) in enumerate(mer_files)
         hour = sys_info.hour
@@ -519,106 +595,38 @@ function run_all_hourly_simulations()
         println("\\n--- Processing MER system for hour $hour - $i of $total_mer_systems ---")
         
         # Create hour-specific output directory
-        hour_output_dir = joinpath(base_output_dir, "hour_$(lpad(hour, 2, '0'))")
+        hour_output_dir = joinpath(base_output_dir, "hour_$(hour)")
         if !ispath(hour_output_dir)
             mkpath(hour_output_dir)
         end
         
         # Convert generators to loads in this system
         modified_filename = convert_generators_to_loads(filename, generator_timeseries, hour)
-        
-        # Run simulation with modified system
-        result = run_simulation_for_hour(hour, modified_filename, hour_output_dir)
-        push!(simulation_results, result)
-        
+        interval = 24
+        horizon = 24
+        steps = 1
+        day_list = collect(1:365)
+        for day_id in day_list
+            # Run simulation with modified system
+            result = run_simulation_for_hour(hour, modified_filename, hour_output_dir, interval, horizon, steps, day_id,baseline_results_path)
+        end
+
         # Clean up temporary file
         if isfile(modified_filename)
             rm(modified_filename)
             println("  Cleaned up temporary file: $modified_filename")
         end
         
-        # Print progress
-        successful = length(filter(r -> r.status == "success", simulation_results))
-        println("Progress: $successful/$(i+1) simulations completed successfully")
     end
-    
-    # Generate summary
-    println("\\n" * "="^80)
-    println("SIMULATION SUMMARY")
-    println("="^80)
-    
-    successful_sims = filter(r -> r.status == "success", simulation_results)
-    failed_sims = filter(r -> r.status == "failed", simulation_results)
-    
-    println("Successfully completed: $(length(successful_sims))/$(length(simulation_results)) simulations")
-    
-    # Separate baseline from MER systems for reporting
-    baseline_sims = filter(r -> r.hour == 24, successful_sims)
-    mer_sims = filter(r -> r.hour != 24, successful_sims)
-    
-    if !isempty(baseline_sims)
-        println("Baseline system: ✓ Completed")
-    end
-    println("MER systems completed: $(length(mer_sims))/24")
-    
-    if !isempty(failed_sims)
-        println("Failed simulations:")
-        for sim in failed_sims
-            if sim.hour == 24
-                println("  Baseline (Hour 24): $(sim.error)")
-            else
-                println("  Hour $(sim.hour): $(sim.error)")
-            end
-        end
-    end
-    
-    println("\\nSuccessful simulations:")
-    println("Hour | Type      | Results Path | Buses | Loads | Generators")
-    println("-"^75)
-    for sim in successful_sims
-        sim_type = sim.hour == 24 ? "Baseline" : "MER+Conv"
-        println("$(lpad(sim.hour, 4)) | $(rpad(sim_type, 9)) | $(sim.results_path) | $(lpad(sim.buses, 5)) | $(lpad(sim.loads, 5)) | $(lpad(sim.generators, 10))")
-    end
-    
-    # Save summary to CSV
-    summary_df = DataFrame([
-        (hour = r.hour, status = r.status, results_path = get(r, :results_path, ""), 
-         buses = get(r, :buses, 0), loads = get(r, :loads, 0), generators = get(r, :generators, 0))
-        for r in simulation_results
-    ])
-    
-    summary_file = joinpath(base_output_dir, "simulation_summary.csv")
-    CSV.write(summary_file, summary_df)
-    println("\\nSummary saved to: $summary_file")
-    
-    total_expected = 1 + length(mer_files)  # baseline + MER systems
-    if length(successful_sims) == total_expected
-        println("\\n🎉 All $(total_expected) simulations completed successfully!")
-        println("   - 1 baseline simulation")
-        println("   - $(length(mer_sims)) MER simulations with converted generators")
-    else
-        println("\\n⚠️  $(length(successful_sims)) out of $(total_expected) simulations completed successfully.")
-        baseline_success = !isempty(filter(r -> r.hour == 24, successful_sims))
-        mer_success_count = length(filter(r -> r.hour != 24, successful_sims))
-        println("   - Baseline: $(baseline_success ? "✓" : "✗")")
-        println("   - MER systems: $mer_success_count/24 completed")
-    end
-    
-    println("="^80)
-    
-    return simulation_results
+    return
 end
 
-# Test function to check system discovery
-function test_system_discovery()
-    """Test function to see what systems are found."""
-    println("Testing system discovery...")
-    systems = find_hourly_systems()
-    println("Found $(length(systems)) systems:")
-    for sys in systems
-        println("  Hour $(sys.hour): $(sys.filename)")
-    end
-    return systems
-end
 
-run_all_hourly_simulations()
+
+baseline_results_path = run_baseline_simulation()
+# baseline_results_path = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_test/baseline_simulation"
+# run_mer_simulations(baseline_results_path)
+# result = SimulationResults("/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_UC_noreserve/baseline_simulation"; ignore_status=true)
+# results_uc = get_decision_problem_results(result, "UC")
+# variables = PSI.read_realized_variables(results_uc)
+# export_results_csv(results_uc, variables, "ED", joinpath(result.path, "results"))

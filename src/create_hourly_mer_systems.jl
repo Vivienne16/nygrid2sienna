@@ -27,7 +27,7 @@ include("src/parsing_utils.jl")
 # Configuration parameters
 base_power = 100
 load_year = 2019
-base_load_scale = 1.16  # 1.5% annual increase from 2020 load level to 2030
+base_load_scale = 1.0  # 1.5% annual increase from 2020 load level to 2030
 res_load_scale = 0.09   # 9% increase in residential load for 2030
 com_load_scale = 0.02   # 2% increase in commercial load for 2030
 ev_load_scale = 0.25    # 14% for 2030, which is about 1M

@@ -4,12 +4,32 @@ const PSY = PowerSystems
 #Function to generate a time array with hourly timestamps for a given year
 function get_timestamp(year)
     timestamps = DateTime("$(year)-01-01T00:00:00"):Hour(1):DateTime("$(year)-12-31T23:00:00")
-    # If leap year, remove Dec 31 (last 24 hours)
-    if Dates.isleapyear(year)
-        timestamps = timestamps[1:end-24]
-    end
-    # Filter out Feb 29 if it's a leap year
     return timestamps
+end
+
+# Function to expand 8760-hour data to 8784 hours for leap years
+# by repeating Feb 28 data for Feb 29
+function expand_timeseries_for_leap_year(data, year)
+    # Only process for leap years
+    if !Dates.isleapyear(year)
+        return data
+    end
+    
+    # Only expand if data is 8760 hours (non-leap year format)
+    if length(data) != 8760
+        return data  # Already correct length or different format
+    end
+    
+    # For leap years, duplicate Feb 28 data (hours 1393-1416)
+    # Feb 28 ends at hour 1416 (59*24 = 1416, day 59 of year)
+    # We insert 24 hours after Feb 28
+    feb28_end_hour = 59 * 24  # Hour 1416 (1-indexed)
+    feb28_start_hour = feb28_end_hour - 23  # Hour 1393
+    feb28_data = data[feb28_start_hour:feb28_end_hour]
+    
+    # Concatenate: Jan 1 to Feb 28, then Feb 28 again (as Feb 29), then Mar 1 to Dec 31
+    expanded_data = vcat(data[1:feb28_end_hour], feb28_data, data[feb28_end_hour+1:end])
+    return expanded_data
 end
 
 
@@ -259,12 +279,14 @@ function _add_hydro(
     #     ext=Dict{String,Any}(),
     # )
     PSY.add_component!(sys, device)
+    # Expand time series for leap years
+    expanded_ts = expand_timeseries_for_leap_year(ts, load_year)
     PSY.add_time_series!(
         sys,
         device,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), ts / maximum(ts)),
+            TimeArray(get_timestamp(load_year), expanded_ts / maximum(expanded_ts)),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )
@@ -290,13 +312,15 @@ function _add_wind(sys, bus::PSY.Bus, name, rating, op_cost, re_ts, load_year)
     # Add the wind component to the power system
     add_component!(sys, wind)
 
+    # Expand time series for leap years
+    expanded_re_ts = expand_timeseries_for_leap_year(re_ts, load_year)
     # Add a time series for the maximum active power based on the input time series data
     PSY.add_time_series!(
         sys,
         wind,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), re_ts),
+            TimeArray(get_timestamp(load_year), expanded_re_ts),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )
@@ -322,12 +346,14 @@ function _add_upv(sys, bus::PSY.Bus, name, rating, op_cost, re_ts, load_year)
     #add the solar component to the power system
     add_component!(sys, solar)
 
+    # Expand time series for leap years
+    expanded_re_ts = expand_timeseries_for_leap_year(re_ts, load_year)
     PSY.add_time_series!(
         sys,
         solar,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), re_ts),
+            TimeArray(get_timestamp(load_year), expanded_re_ts),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )
@@ -351,12 +377,14 @@ function _add_dpv(sys, bus::PSY.Bus, name, rating, op_cost, re_ts, load_year)
     #add the solar component to the power system
     add_component!(sys, solar)
 
+    # Expand time series for leap years
+    expanded_re_ts = expand_timeseries_for_leap_year(re_ts, load_year)
     PSY.add_time_series!(
         sys,
         solar,
         PSY.SingleTimeSeries(
             "max_active_power",
-            TimeArray(get_timestamp(load_year), re_ts),
+            TimeArray(get_timestamp(load_year), expanded_re_ts),
             scaling_factor_multiplier=PSY.get_max_active_power,
         )
     )
@@ -413,6 +441,8 @@ function _build_load(sys, bus::PSY.Bus, name, load_ts, load_year)
     # Add the load component to the power system model
     add_component!(sys, load)
 
+    # Expand time series for leap years
+    expanded_load_ts = expand_timeseries_for_leap_year(load_ts, load_year)
 
     if maximum(load_ts) == 0.0 && minimum(load_ts) == 0.0
         PSY.add_time_series!(
@@ -420,7 +450,7 @@ function _build_load(sys, bus::PSY.Bus, name, load_ts, load_year)
             load,
             PSY.SingleTimeSeries(
                 "max_active_power",
-                TimeArray(get_timestamp(load_year), load_ts),
+                TimeArray(get_timestamp(load_year), expanded_load_ts),
                 scaling_factor_multiplier=PSY.get_max_active_power,
             )
         )
@@ -430,7 +460,7 @@ function _build_load(sys, bus::PSY.Bus, name, load_ts, load_year)
             load,
             PSY.SingleTimeSeries(
                 "max_active_power",
-                TimeArray(get_timestamp(load_year), load_ts / minimum(load_ts)),
+                TimeArray(get_timestamp(load_year), expanded_load_ts / minimum(expanded_load_ts)),
                 scaling_factor_multiplier=PSY.get_max_active_power,
             )
         )
@@ -440,7 +470,7 @@ function _build_load(sys, bus::PSY.Bus, name, load_ts, load_year)
             load,
             PSY.SingleTimeSeries(
                 "max_active_power",
-                TimeArray(get_timestamp(load_year), load_ts / maximum(load_ts)),
+                TimeArray(get_timestamp(load_year), expanded_load_ts / maximum(expanded_load_ts)),
                 scaling_factor_multiplier=PSY.get_max_active_power,
             )
         )

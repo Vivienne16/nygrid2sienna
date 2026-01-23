@@ -50,7 +50,7 @@ else
   sim_name = "nys2030_$(load_year)_test"
   sys_name = "nys2030_$(load_year).json"
 end
-output_dir = "2030_MER_Test"
+output_dir = "2030_MER_Test_PTDF"
 interval = 24
 horizon = 24
 steps = 365
@@ -93,7 +93,7 @@ PSY.transform_single_time_series!(sys, Hour(horizon), Hour(interval))
 
 # Create a unit commitment template using DC power flow model
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.AreaBalancePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
-template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.DCPPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
+template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.PTDFPowerModel, use_slacks=true, PTDF_matrix=PTDF(sys)))
 # template_uc = PSI.template_unit_commitment(; network=NetworkModel(PSI.CopperPlatePowerModel, use_slacks=false, PTDF_matrix=PTDF(sys)))
 # Set device models for different components
 set_device_model!(template_uc, ThermalStandard, ThermalDispatchNoMin)

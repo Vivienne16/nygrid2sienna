@@ -26,10 +26,13 @@ function nondtvals(df::DataFrame)
     return df[!, nondtcols(df)]
 end
 
-results_dir = "/Users/vivienneliu/GitHub/nygrid2sienna/yearly_simulation_test"
+# results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/2030_MER_Test_PTDF"
+results_dir = "/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERHourlySimulations_UC_noreserve_newre"
 results_folders = readdir(results_dir)
 filter!(x-> isdir(joinpath(results_dir, x)), results_folders)
-
+# system = System("/home/fs02/pmr82_0001/ml2589/nygrid2sienna/MERsystems/baseline_nys2030_2019.json")
+# aggregation = PA.make_fuel_dictionary(system,PA.get_generator_mapping("src/generator_mapping.yaml"))
+# JSON.write("src/aggregation.json", JSON.json(aggregation,4))
 for folder in results_folders
     status_file = joinpath(results_dir, folder, "results", "status.json")
     if isfile(status_file)
@@ -95,7 +98,5 @@ for folder in results_folders
     feather_file = joinpath(output_dir, "$folder.feather")
     Feather.write(feather_file, df)
 
-    system = System("/Users/vivienneliu/GitHub/nygrid2sienna/test_systems/nys2030_2003.json")
-    aggregation = PA.make_fuel_dictionary(system,PA.get_generator_mapping("src/generator_mapping.yaml"))
-    JSON.write("src/aggregation.json", JSON.json(aggregation,4))
+    
 end
